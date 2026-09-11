@@ -51,4 +51,9 @@ A real MangaDex chapter's pages display in the browser **through the Cloudflare 
 ---
 
 ## RESULTS
-_(appended as batches complete — per the documentation hard rule)_
+
+### Batch A — Task 1: Scaffold ✅ (2026-09-11)
+**Built:** Vite 8 + React 18 + TS + Tailwind v4 (`@tailwindcss/vite`) + `vite-plugin-pwa`. Data deps installed (`@tanstack/react-query`, `zustand`, `dexie`). QueryClient provider wired in `main.tsx` with survival-grade cache defaults (5-min staleTime, no refetch-on-focus). Minimal `App.tsx` smoke view.
+**Deviation:** scaffolded into a temp dir and merged (create-vite won't run into a non-empty dir); temp dir needed PowerShell to remove (Windows file lock). Removed leftover template assets (App.css, hero.png, icons.svg). Toolchain confirmed: Node 24.12, npm 11.6, git 2.52, gh 2.96.
+**Verification:** `npm run build` → ✓ built, Tailwind CSS emitted (7.66 kB), SW + manifest generated. 0 vulnerabilities on install.
+**Gaps carried:** PWA icons are placeholders (deferred to Phase 6 per plan).
