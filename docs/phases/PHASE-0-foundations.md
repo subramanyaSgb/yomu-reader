@@ -57,3 +57,21 @@ A real MangaDex chapter's pages display in the browser **through the Cloudflare 
 **Deviation:** scaffolded into a temp dir and merged (create-vite won't run into a non-empty dir); temp dir needed PowerShell to remove (Windows file lock). Removed leftover template assets (App.css, hero.png, icons.svg). Toolchain confirmed: Node 24.12, npm 11.6, git 2.52, gh 2.96.
 **Verification:** `npm run build` → ✓ built, Tailwind CSS emitted (7.66 kB), SW + manifest generated. 0 vulnerabilities on install.
 **Gaps carried:** PWA icons are placeholders (deferred to Phase 6 per plan).
+
+### Batch B — Task 2: MangaDex lib + Task 3: Worker proxy ✅ (2026-09-11)
+**Built (Task 2):**
+- `src/lib/mangadex/client.ts` — `RateLimiter` (concurrency cap + min-interval spacing, ~4 req/s) + `mdGet` with 429/5xx exponential backoff (respects Retry-After), identifying User-Agent, unauthenticated. Injectable clock for tests.
+- `src/lib/mangadex/queries.ts` — TanStack Query hooks: `useSearch`, `useChapterFeed` (English-only), `useAtHomeServer` (10-min staleTime, under the 15-min URL window).
+- `src/lib/proxy/imageUrl.ts` — `buildPageProxyUrl` (the ONLY producer of page image URLs; always routes through the Worker) + `isMangaDexAtHomeHost` guard.
+- `src/lib/mangadex/client.selfcheck.ts` — assert-based checks (spacing/concurrency, backoff monotonic+capped, proxy never leaks direct URL, data-saver path, host allowlist). Run via `npx tsx`.
+
+**Built (Task 3):**
+- `worker/src/index.ts` — Cloudflare Worker `/img?u=&q=` proxy: **restricted** to MangaDex `@Home` hosts (403 otherwise), server-side fetch, permissive CORS, 1-day edge cache. Separate deploy target with own `package.json`, `wrangler.toml`, `tsconfig.json`.
+
+**Verification:**
+- Self-check: ALL PASSED (spacing trace `[1,50,102,152,202,267]` confirms enforced spacing).
+- Worker typecheck: exit 0.
+- **LIVE end-to-end (exit-criterion dry-run):** real chapter (One Punch-Man Webcomic ch.153, host `cmdxd98sb0x3yprd.mangadex.network`) → Worker → **200, image/png, 19323 bytes, ACAO=http://localhost:5173**; forbidden host → **403**. The MangaDex CORS-lock risk is PROVEN solvable.
+
+**Deviations:** app tsconfig has `erasableSyntaxOnly` → rewrote RateLimiter to avoid TS constructor-parameter-properties; excluded `*.selfcheck.ts` from the app build (it runs under tsx as a Node script). Wrangler v3 warns it's out of date + compat-date fallback — cosmetic, works; upgrade to v4 is a low-priority note.
+**Gaps carried:** `q=low` recompression is a pass-through stub (Phase 5 data-saver); CORS reflects any origin (lock to app origin in Phase 6).
