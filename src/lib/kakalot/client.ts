@@ -42,15 +42,20 @@ export async function kkChapters(
   mangaId: string,
 ): Promise<{ title: string; chapters: KakalotChapter[]; cover: string; kind?: string }> {
   const res = await fetch(scrapeUrl('chapters', { id: mangaId }))
-  if (!res.ok) return { title: '', chapters: [], cover: '' }
-  return res.json()
+  // THROW on failure/empty — returning an empty list here made TanStack cache a
+  // transient upstream hiccup as "series has no chapters" for 10 minutes.
+  if (!res.ok) throw new Error(`chapters fetch failed: ${res.status}`)
+  const data = await res.json() as { title: string; chapters: KakalotChapter[]; cover: string; kind?: string }
+  if (!data.chapters?.length) throw new Error('empty chapter list (upstream hiccup)')
+  return data
 }
 
 export async function kkPages(chapterId: string): Promise<KakalotPage[]> {
   const res = await fetch(scrapeUrl('pages', { id: chapterId }))
-  if (!res.ok) return []
+  if (!res.ok) throw new Error(`pages fetch failed: ${res.status}`)
   const data = await res.json() as { pages: KakalotPage[] }
-  return data.pages ?? []
+  if (!data.pages?.length) throw new Error('empty page list (upstream hiccup)')
+  return data.pages
 }
 
 /** Proxied cover URL for a WeebCentral series id ("{ULID}/{Slug}"). */

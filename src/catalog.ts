@@ -7,6 +7,7 @@ export interface CatalogEntry {
   title: string
   id: string
   wcTitle: string
+  cover?: string       // explicit proxied cover (Comizy 'buddy:' entries); WC covers are derived from the id
   unavailable?: boolean
 }
 
@@ -49,7 +50,7 @@ export const CATALOG: CatalogEntry[] = [
   {"title":"The Regressed Mercenary Has a Plan","id":"01JNKHGT37KPS3KBVA5CG1X7V0/the-regressed-mercenary-has-a-plan","wcTitle":"The Regressed Mercenary Has a Plan"},
   {"title":"Dark Mage\u0027s Return to Enlistment","id":"01M02S4TGF866VH7MPCA9WJ37J/The-Dark-Mages-Return-to-Enlistment","wcTitle":"Dark Mage\u0027s Return to Enlistment"},
   {"title":"Swordmaster\u0027s Youngest Son","id":"01J76XYG8FNWRR3PHEFKN2NB87/The-Swordmasters-Son","wcTitle":"Swordmaster\u0027s Youngest Son"},
-  {"title":"Return of the Shattered Constellation","id":"","wcTitle":"","unavailable":true},
+  {"title":"Return of the Shattered Constellation","id":"buddy:kNxgKvOE:return-of-the-shattered-constellation","wcTitle":"Return Of The Shattered Constellation","cover":"https://yomu-image-proxy.subramanya-bellary.workers.dev/scrape?site=kakalot&action=img&u=https%3A%2F%2Frx.comizy.io%2Fcovers%2F85a96a6cba78.webp&ref=https%3A%2F%2Fcomizy.io%2F"},
   {"title":"Indomitable Martial King","id":"01JRZBAVB829AKGARECHF5QWYR/the-reincarnated-king-of-fists","wcTitle":"The Reincarnated King of Fists"},
   {"title":"Lone Necromancer","id":"01J76XYF7A7W131X37XKCGKWZ7/Solo-Necromancy","wcTitle":"The Lone Necromancer"},
   {"title":"Max-Level Player\u0027s 100th Regression","id":"01K27G582KZJ5TPCJ5K83MSPX4/the-100th-regression-of-the-maxlevel-player","wcTitle":"The 100th Regression of the Max-Level Player"},
@@ -82,8 +83,8 @@ export const CATALOG: CatalogEntry[] = [
   {"title":"The Second Coming of Gluttony","id":"01J76XYD5GP66R7CWDY075X5YE/The-Second-Coming-of-Gluttony","wcTitle":"The Second Coming of Gluttony"},
   {"title":"Volcanic Age","id":"01J76XYCDPJ3GN1NTE11GS9TEV/Volcanic-Age","wcTitle":"Volcanic Age"},
   {"title":"Chronicles of the Heavenly Demon","id":"01J76XYDN566GKDS5C2KHHQPK3/Heavenly-Demon-Reborn","wcTitle":"Chronicles of the Heavenly Demon"},
-  {"title":"Memoir of the King of War","id":"","wcTitle":"","unavailable":true},
-  {"title":"Fist Demon of Mount Hua","id":"","wcTitle":"","unavailable":true},
+  {"title":"Memoir of the King of War","id":"buddy:x5XEXmj1:memoir-of-the-king-of-war","wcTitle":"Memoir Of The King Of War","cover":"https://yomu-image-proxy.subramanya-bellary.workers.dev/scrape?site=kakalot&action=img&u=https%3A%2F%2Frx.comizy.io%2Fcovers%2Fae63fc7a7538.webp&ref=https%3A%2F%2Fcomizy.io%2F"},
+  {"title":"Fist Demon of Mount Hua","id":"buddy:X5rv225Q:fist-demon-of-mount-hua","wcTitle":"Fist Demon Of Mount Hua","cover":"https://yomu-image-proxy.subramanya-bellary.workers.dev/scrape?site=kakalot&action=img&u=https%3A%2F%2Frx.comizy.io%2Fcovers%2F6c8214e44b6d.webp&ref=https%3A%2F%2Fcomizy.io%2F"},
   {"title":"Peerless Dad","id":"01J76XYCXXB105QEZ4J82JBAEB/Peerless-Dad","wcTitle":"Father, Unrivaled"},
   {"title":"Legend of Asura: The Venom Dragon","id":"01J76XYEG043VFH182TS4CCFYE/Legend-of-Asura-The-Venom-Dragon","wcTitle":"Legend of Asura - The Venom Dragon"},
   {"title":"Absolute Sword Sense","id":"01JJ2D2B46DZ8QYPVGNVC63V3E/absolute-sword-sense","wcTitle":"Absolute Sword Sense"},
@@ -92,9 +93,9 @@ export const CATALOG: CatalogEntry[] = [
   {"title":"Surviving the Game as a Barbarian","id":"01J76XYG976314R2DM2DKQRBGS/Surviving-The-Game-as-a-Barbarian","wcTitle":"Surviving the Game as a Barbarian"},
   {"title":"Dungeon Odyssey","id":"01JNKGRKJ61H73S8M5CKZ5FKWD/dungeon-odyssey","wcTitle":"Dungeon Odyssey"},
   {"title":"The Stellar Swordmaster","id":"01JJCB7T8DYSR86CMK1ZYPCN7A/the-stellar-swordmaster","wcTitle":"The Stellar Swordmaster"},
-  {"title":"The Demon Prince Goes to the Academy","id":"","wcTitle":"","unavailable":true},
+  {"title":"The Demon Prince Goes to the Academy","id":"buddy:Y5lKYlNl:the-demon-prince-goes-to-the-academy","wcTitle":"The Demon Prince goes to the Academy","cover":"https://yomu-image-proxy.subramanya-bellary.workers.dev/scrape?site=kakalot&action=img&u=https%3A%2F%2Frx.comizy.io%2Fcovers%2Ffeddcf17c2c1.webp&ref=https%3A%2F%2Fcomizy.io%2F"},
   {"title":"Tyrant of the Tower Defense Game","id":"01JS1VSEVMC4FVSDACKNWY5E1H/tyrant-of-the-tower-defense-game","wcTitle":"Tyrant of the Tower Defense Game"},
-  {"title":"Star-Embracing Swordmaster","id":"","wcTitle":"","unavailable":true},
+  {"title":"Star-Embracing Swordmaster","id":"buddy:mOqQ9aOR:star-embracing-swordmaster","wcTitle":"Star-Embracing Swordmaster","cover":"https://yomu-image-proxy.subramanya-bellary.workers.dev/scrape?site=kakalot&action=img&u=https%3A%2F%2Frx.comizy.io%2Fcovers%2Fe6eb345e257d.webp&ref=https%3A%2F%2Fcomizy.io%2F"},
   {"title":"Absolute Regression","id":"01JGBYTDYCGFHJCQ16JBW69SZB/absolute-regression","wcTitle":"Absolute Regression"},
   {"title":"Villains Are Destined to Die","id":"01J76XYDMZ059WG12B0QQWRYXS/Death-Is-the-Only-Ending-for-the-Villainess","wcTitle":"Villains Are Destined to Die"},
   {"title":"Who Made Me a Princess","id":"01J76XYDQPCQQR5DQXXF8NHKWK/Who-Made-Me-A-Princess","wcTitle":"Who Made Me A Princess"},
@@ -104,11 +105,11 @@ export const CATALOG: CatalogEntry[] = [
   {"title":"Shotgun Boy","id":"01J76XYEHPSTBZVNFJDCCRQH7P/Shotgun-Boy","wcTitle":"Shotgun Boy"},
   {"title":"Dr. Frost","id":"01J76XY8EMS37BK2PDFXH0NMZE/Dr-Frost","wcTitle":"Dr. Frost"},
   {"title":"Kubera","id":"01J76XY7P3BCR7KJ37JYTBC42X/Kubera","wcTitle":"Kubera"},
-  {"title":"Purple Hyacinth","id":"","wcTitle":"","unavailable":true},
+  {"title":"Purple Hyacinth","id":"buddy:L5MbZgjl:purple-hyacinth","wcTitle":"Purple Hyacinth","cover":"https://yomu-image-proxy.subramanya-bellary.workers.dev/scrape?site=kakalot&action=img&u=https%3A%2F%2Frx.comizy.io%2Fcovers%2Fe9d697262f7e.webp&ref=https%3A%2F%2Fcomizy.io%2F"},
   {"title":"Seasons of Blossom","id":"01J76XYEMAHA9EF4V936RPKPCG/Seasons-of-Blossom","wcTitle":"Seasons of Blossom"},
   {"title":"Annarasumanara","id":"01J76XY8J2X7XNA2KE7DTGE319/Annarasumanara","wcTitle":"Annarasumanara"},
   {"title":"Noblesse","id":"01J76XY7KS655DGFQEVH9DPSGX/Noblesse","wcTitle":"Noblesse"},
   {"title":"Dice","id":"01J76XY8T2JH0M0DMYBQ2ZTSJG/DICE","wcTitle":"Dice"},
-  {"title":"The Investor Who Sees the Future","id":"","wcTitle":"","unavailable":true},
-  {"title":"Super Gene","id":"","wcTitle":"","unavailable":true},
+  {"title":"The Investor Who Sees the Future","id":"buddy:zj2qwX5M:the-investor-who-sees-the-future","wcTitle":"The Investor Who Sees the Future","cover":"https://yomu-image-proxy.subramanya-bellary.workers.dev/scrape?site=kakalot&action=img&u=https%3A%2F%2Frx.comizy.io%2Fcovers%2Fa92e2448c373.webp&ref=https%3A%2F%2Fcomizy.io%2F"},
+  {"title":"Super Gene","id":"buddy:Gj7042Ov:super-gene","wcTitle":"Super Gene","cover":"https://yomu-image-proxy.subramanya-bellary.workers.dev/scrape?site=kakalot&action=img&u=https%3A%2F%2Frx.comizy.io%2Fcovers%2F6e99a956cfff.webp&ref=https%3A%2F%2Fcomizy.io%2F"},
 ]

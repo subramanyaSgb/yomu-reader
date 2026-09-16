@@ -22,8 +22,67 @@ const COMICK_API = 'https://api.comick.dev'
 // WeebCentral (fallback reading source — complete chapter lists incl. licensed manhwa)
 const WC = 'https://weebcentral.com'
 const WC_COVER_CDN = 'https://temp.compsci88.com'
-// MangaSee-lineage image CDNs used by WeebCentral chapters + covers
-const WC_IMG_HOST = /(^|\.)(planeptune\.us|lowee\.us|lastation\.us|compsci88\.com|weebcentral\.com)$/
+// MangaSee-lineage image CDNs used by WeebCentral chapters + covers,
+// plus Comizy CDNs for the buddy: fallback source
+const WC_IMG_HOST = /(^|\.)(planeptune\.us|lowee\.us|lastation\.us|compsci88\.com|weebcentral\.com|cmzcdn\.org|comizy\.io)$/
+
+// Comizy (mangabuddy.com successor) — secondary source for titles WeebCentral lacks.
+// Catalog ids are "buddy:{titleId}:{slug}"; chapter ids "buddy:{titleId}:{chapterId}".
+const COMIZY_API = 'https://api.comizy.io'
+const COMIZY_REF = 'https://comizy.io/'
+
+async function comizyGet(path: string): Promise<any | null> {
+  const res = await fetch(COMIZY_API + path, {
+    headers: { 'User-Agent': BROWSER_UA, Accept: 'application/json', Referer: COMIZY_REF },
+    cf: { cacheEverything: true, cacheTtl: 600 },
+  })
+  if (!res.ok) return null
+  return res.json()
+}
+
+async function buddyChapters(
+  id: string, // buddy:{titleId}:{mangaSlug}
+  workerOrigin: string,
+): Promise<{ title: string; chapters: KakalotChapter[]; cover: string; kind: string }> {
+  const [, titleId, mangaSlug] = id.split(':')
+  const [det, list] = await Promise.all([
+    comizyGet(`/titles/${titleId}`),
+    comizyGet(`/titles/${titleId}/chapters`),
+  ])
+  const raw: any[] = list?.data?.chapters ?? []
+  const chapters: KakalotChapter[] = raw.map((c) => ({
+    // Pages come from the chapter PAGE (the images API truncates to 3 without auth),
+    // so the chapter id carries the slugs the page URL needs.
+    id: `buddy:${mangaSlug}:${c.slug}`,
+    number: String(c.name ?? '').match(/(\d+(?:\.\d+)?)\s*$/)?.[1] ?? null,
+    title: c.name ?? null,
+    publishAt: c.updated_at ?? '',
+  })).reverse() // API is newest-first; reader wants ascending
+  const t = det?.data?.title
+  const cover = t?.cover ? proxiedImageUrl(workerOrigin, t.cover) : ''
+  return { title: t?.name ?? '', chapters, cover, kind: 'manhwa' }
+}
+
+async function buddyPages(id: string): Promise<KakalotPage[]> {
+  // buddy:{mangaSlug}:{chapterSlug} → full image list lives in the chapter page's
+  // __NEXT_DATA__ (initialChapter.images); the JSON API truncates without auth.
+  const [, mangaSlug, chapterSlug] = id.split(':')
+  const res = await fetch(`https://comizy.io/${mangaSlug}/${chapterSlug}`, {
+    headers: { 'User-Agent': BROWSER_UA, Accept: 'text/html,*/*;q=0.8', Referer: COMIZY_REF },
+    cf: { cacheEverything: true, cacheTtl: 3600 },
+  })
+  if (!res.ok) return []
+  const html = await res.text()
+  const jsonText = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]+?)<\/script>/)?.[1]
+  if (!jsonText) return []
+  try {
+    const data = JSON.parse(jsonText)
+    const images: string[] = data?.props?.pageProps?.initialChapter?.images ?? []
+    return images.filter((s) => typeof s === 'string').map((src) => ({ src }))
+  } catch {
+    return []
+  }
+}
 const BROWSER_UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
 
@@ -163,15 +222,17 @@ async function scrapeChapters(
   // Type appears in the meta description: "Read {Title} {Type} online for free…"
   const kind = (pageHtml?.match(/Read .+ (Manga|Manhwa|Manhua|OEL|Comic) online/i)?.[1] ?? 'manga').toLowerCase()
 
+  // Each row carries its publish timestamp in checkNewChapter('<ISO>') just before the
+  // anchor — captured so the app can show recency and predict next-chapter dates.
   const chapters: KakalotChapter[] = []
-  for (const m of listHtml.matchAll(/href="(?:https:\/\/weebcentral\.com)?(\/chapters\/[A-Z0-9]+)"[\s\S]{0,600}?<span class="">([^<]+)<\/span>/g)) {
-    const label = decodeEntities(m[2])
+  for (const m of listHtml.matchAll(/checkNewChapter\('([^']+)'\)[\s\S]{0,900}?href="(?:https:\/\/weebcentral\.com)?(\/chapters\/[A-Z0-9]+)"[\s\S]{0,600}?<span class="">([^<]+)<\/span>/g)) {
+    const label = decodeEntities(m[3])
     const num = label.match(/(\d+(?:\.\d+)?)\s*$/)?.[1] ?? null
     chapters.push({
-      id: WC + m[1],
+      id: WC + m[2],
       number: num,
       title: label,
-      publishAt: '',
+      publishAt: m[1],
     })
   }
   // List is newest-first; reverse to ascending for the reader.
@@ -208,9 +269,12 @@ async function proxyKakalotImage(imageUrl: string, referer: string, origin: stri
     return new Response('Forbidden host', { status: 403, headers: corsHeaders(origin) })
   }
 
+  // Referer must match the host's own site — clients can't know that mapping.
+  const effectiveReferer = /(cmzcdn\.org|comizy\.io)$/.test(parsed.host) ? COMIZY_REF : referer
+
   const upstream = await fetch(imageUrl, {
     headers: {
-      Referer: referer,
+      Referer: effectiveReferer,
       'User-Agent': BROWSER_UA,
     },
     cf: { cacheEverything: true, cacheTtl: 86_400 },
@@ -311,16 +375,20 @@ export default {
         if (action === 'chapters') {
           const id = url.searchParams.get('id') ?? ''
           if (!id) return json({ error: 'missing id' }, origin, 400)
-          const data = await scrapeChapters(id, url.origin)
-          return json(data, origin, 200, data.chapters.length ? 600 : 0)
+          const data = id.startsWith('buddy:')
+            ? await buddyChapters(id, url.origin)
+            : await scrapeChapters(id, url.origin)
+          // Empty chapter list = upstream hiccup, never a valid answer for a real
+          // series — signal an error so clients retry instead of caching emptiness.
+          return json(data, origin, data.chapters.length ? 200 : 503, data.chapters.length ? 600 : 0)
         }
 
         if (action === 'pages') {
           const id = url.searchParams.get('id') ?? ''
           if (!id) return json({ error: 'missing id' }, origin, 400)
-          // id IS the full chapter URL — released pages never change, cache long
-          const pages = await scrapePages(id)
-          return json({ pages }, origin, 200, pages.length ? 3600 : 0)
+          // id IS the full chapter URL (WC) or buddy:{titleId}:{chapterId} (Comizy)
+          const pages = id.startsWith('buddy:') ? await buddyPages(id) : await scrapePages(id)
+          return json({ pages }, origin, pages.length ? 200 : 503, pages.length ? 3600 : 0)
         }
 
         if (action === 'img') {

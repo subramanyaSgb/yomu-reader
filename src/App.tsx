@@ -11,6 +11,7 @@ import OfflineBanner from './features/reliability/OfflineBanner'
 import OnboardingScreen from './features/onboarding/OnboardingScreen'
 import { hasSeenOnboarding } from './features/onboarding/Onboarding'
 import ShelfScreen from './features/shelf/ShelfScreen'
+import UpcomingScreen from './features/shelf/UpcomingScreen'
 import SeriesDetail from './features/discovery/SeriesDetail'
 import ReaderShell from './features/reader/ReaderShell'
 import { markReadingIfWanted, type Shelf } from './features/shelf/shelf'
@@ -22,6 +23,7 @@ export type SeriesSource = 'mangadex' | 'kakalot' | 'comick'
 type OverlayScreen =
   | { kind: 'detail'; id: string; source: SeriesSource }
   | { kind: 'reader'; id: string; source: SeriesSource; type: SeriesType; startChapterId?: string }
+  | { kind: 'upcoming' }
 
 export default function App() {
   const [tab, setTab] = useState<Tab>('reading')
@@ -120,7 +122,10 @@ export default function App() {
                 openReader(readId ?? overlay.id, readSource ?? overlay.source, 'manga', startChapterId)}
             />
           )}
-          {!overlay && <ShelfScreen shelf={tab} onOpen={openSeries} />}
+          {overlay?.kind === 'upcoming' && (
+            <UpcomingScreen onBack={goBack} onOpen={openSeries} />
+          )}
+          {!overlay && <ShelfScreen shelf={tab} onOpen={openSeries} onUpcoming={() => pushOverlay({ kind: 'upcoming' })} />}
         </main>
 
         {!overlay && (

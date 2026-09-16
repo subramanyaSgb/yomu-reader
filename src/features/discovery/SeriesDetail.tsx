@@ -5,6 +5,7 @@ import {
 import { useShelves, shelfOf, type Shelf } from '../shelf/shelf'
 import { useReadSet } from '../reader/readTracking'
 import { restoreProgress } from '../reader/resume'
+import { saveSeriesMeta } from '../shelf/seriesMeta'
 import {
   useManga, useChapterFeed, mangaEnTitle, mangaCoverUrl,
   type MDChapter,
@@ -112,6 +113,12 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
     restoreProgress(readSeriesId).then(p => { if (alive) setLastReadChapterId(p?.lastChapterId ?? null) })
     return () => { alive = false }
   }, [readSeriesId])
+  // Record total chapter count for the shelf-card % badge.
+  useEffect(() => {
+    if (readSeriesId && kkFeed.data?.chapters.length) {
+      void saveSeriesMeta(readSeriesId, { total: kkFeed.data.chapters.length })
+    }
+  }, [readSeriesId, kkFeed.data])
 
   const displayChapterCount = isComick ? ckChapters.length : (showKkChapters ? kkChapters.length : mdChapters.length)
 

@@ -10,6 +10,7 @@ import { mdGet } from '../../lib/mangadex/client'
 import { useKakalotChapters, useKakalotSearch } from '../../lib/kakalot/queries'
 import { makeProgressSaver, restoreProgress } from './resume'
 import { markChapterRead } from './readTracking'
+import { saveSeriesMeta } from '../shelf/seriesMeta'
 import type { ScrollAnchor } from './scrollAnchor'
 import { trackChapterRead } from '../stats/statsRepo'
 import { useWakeLock } from '../settings/useWakeLock'
@@ -209,11 +210,14 @@ export default function ReaderShell({ seriesId, seriesSource, seriesType, startC
     }
   }, [])
 
-  // Opening a chapter marks it read (comix-style checkmarks in the chapter list).
+  // Opening a chapter marks it read (comix-style checkmarks) and records the series
+  // meta the shelf cards display (total chapters + last chapter number).
   useEffect(() => {
     if (!restored) return
     const ref = chapterRefsRef.current[chapterIndex]
-    if (ref) void markChapterRead(seriesId, ref.id)
+    if (!ref) return
+    void markChapterRead(seriesId, ref.id)
+    void saveSeriesMeta(seriesId, { total: chapterRefsRef.current.length, lastNumber: ref.number })
   }, [chapterIndex, restored, seriesId])
 
   // Baseline save when NAVIGATING to a different chapter (start of it). Never on the
