@@ -1,9 +1,13 @@
 // Reader shell (FR-6): loads chapter list, picks reading mode, hosts the active renderer.
 // Supports MangaDex (API) and Mangakakalot (scraper) sources.
+// Auto-fallback: if a MangaDex series has no readable chapters (all external/licensed),
+// searches Kakalot by title and uses the first match automatically.
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useChapterFeed } from '../../lib/mangadex/queries'
-import { useKakalotChapters } from '../../lib/kakalot/queries'
+import { useChapterFeed, mangaEnTitle } from '../../lib/mangadex/queries'
+import { useQuery } from '@tanstack/react-query'
+import { mdGet } from '../../lib/mangadex/client'
+import { useKakalotChapters, useKakalotSearch } from '../../lib/kakalot/queries'
 import { makeProgressSaver, restoreProgress } from './resume'
 import { trackChapterRead } from '../stats/statsRepo'
 import { useWakeLock } from '../settings/useWakeLock'
@@ -20,6 +24,7 @@ import VersionSwitchSheet from './VersionSwitchSheet'
 import { useReaderMemory } from './useReaderMemory'
 import type { SeriesType, ReadMode } from '../../lib/db/schema'
 import type { SeriesSource } from '../../App'
+import type { MDList, MDManga } from '../../lib/mangadex/queries'
 
 interface Props {
   seriesId: string
@@ -41,12 +46,50 @@ export default function ReaderShell({ seriesId, seriesSource, seriesType, onClos
   const mode = mem.mode ?? defaultMode(seriesType)
   useWakeLock(true)
 
-  // Source-specific chapter feed hooks (only one will be enabled at a time).
+  // Always fetch MangaDex chapters when source is mangadex.
   const mdFeed = useChapterFeed(seriesSource === 'mangadex' ? seriesId : undefined)
-  const kkFeed = useKakalotChapters(seriesSource === 'kakalot' ? seriesId : undefined)
 
-  const isLoading = seriesSource === 'mangadex' ? mdFeed.isLoading : kkFeed.isLoading
-  const isError = seriesSource === 'mangadex' ? mdFeed.isError : kkFeed.isError
+  // Fetch the series title so we can search Kakalot if MD has no readable chapters.
+  const mdMeta = useQuery({
+    queryKey: ['md', 'meta', seriesId],
+    enabled: seriesSource === 'mangadex',
+    staleTime: 30 * 60 * 1000,
+    queryFn: () => mdGet<MDList<MDManga>>('/manga', {
+      ids: [seriesId],
+      limit: 1,
+      'includes[]': ['cover_art'],
+    }),
+  })
+
+  // MangaDex readable chapters = those with pages hosted on MD (not external-only).
+  const mdReadableChapters = useMemo(() => {
+    if (!mdFeed.data) return null
+    return mdFeed.data.data.filter(
+      (c) => !c.attributes.externalUrl && c.attributes.pages > 0
+    )
+  }, [mdFeed.data])
+
+  // If MD has no readable chapters, fall back to Kakalot via title search.
+  const mdHasNoReadable = mdFeed.data != null && mdReadableChapters?.length === 0
+  const seriesTitle = mdMeta.data?.data?.[0] ? mangaEnTitle(mdMeta.data.data[0]) : ''
+  const kkFallbackSearch = useKakalotSearch(mdHasNoReadable && seriesTitle ? seriesTitle : '')
+  const kkFallbackId = kkFallbackSearch.data?.[0]?.id ?? null
+
+  // Kakalot chapters — either direct (source=kakalot) or fallback from MD.
+  const kkChapterId =
+    seriesSource === 'kakalot' ? seriesId :
+    (mdHasNoReadable && kkFallbackId ? kkFallbackId : undefined)
+  const kkFeed = useKakalotChapters(kkChapterId)
+
+  // Determine active source: prefer MD if it has readable chapters, else Kakalot.
+  const activeSource: SeriesSource =
+    seriesSource === 'kakalot' ? 'kakalot' :
+    (mdHasNoReadable ? 'kakalot' : 'mangadex')
+
+  const isLoading =
+    activeSource === 'mangadex' ? mdFeed.isLoading :
+    (kkFeed.isLoading || kkFallbackSearch.isLoading || mdFeed.isLoading)
+  const isError = activeSource === 'mangadex' ? mdFeed.isError : kkFeed.isError
 
   // Stats tracking
   const prevChapterRef = useRef<string | null>(null)
@@ -67,12 +110,10 @@ export default function ReaderShell({ seriesId, seriesSource, seriesType, onClos
     setRestored(false)
   }, [seriesId])
 
-  // Build resolved chapter list — MangaDex uses the full version-resolver;
-  // Kakalot chapters are already one-version-per-number from the scraper.
+  // Build resolved chapter list.
   const resolved: ResolvedChapter[] = useMemo(() => {
-    if (seriesSource === 'mangadex') {
-      if (!mdFeed.data) return []
-      const raw: RawChapter[] = mdFeed.data.data.map((c) => ({
+    if (activeSource === 'mangadex' && mdReadableChapters) {
+      const raw: RawChapter[] = mdReadableChapters.map((c) => ({
         id: c.id,
         number: c.attributes.chapter,
         group: c.relationships.find((r) => r.type === 'scanlation_group')?.id ?? 'unknown',
@@ -81,21 +122,21 @@ export default function ReaderShell({ seriesId, seriesSource, seriesType, onClos
         publishAt: c.attributes.publishAt,
       }))
       return resolveChapters(raw, inferPreferredGroup(raw))
-    } else {
-      // Kakalot: each chapter is already the only version.
+    }
+    if (activeSource === 'kakalot') {
       return (kkFeed.data?.chapters ?? []).map((c) => ({
         number: c.number,
         selectedVersionId: c.id,
         versions: [{ id: c.id, group: 'Mangakakalot', likes: 0, pages: 0 }],
       } as ResolvedChapter))
     }
-  }, [seriesSource, mdFeed.data, kkFeed.data])
+    return []
+  }, [activeSource, mdReadableChapters, kkFeed.data])
 
   const chapterRefs: ChapterRef[] = resolved.map((c) => ({
     id: overrides[c.number ?? '__null__'] ?? c.selectedVersionId,
     number: c.number,
-    // Tag Kakalot chapters so the renderers know to call the right image builder.
-    source: seriesSource,
+    source: activeSource,
   }))
   chapterRefsRef.current = chapterRefs
 
@@ -131,9 +172,18 @@ export default function ReaderShell({ seriesId, seriesSource, seriesType, onClos
     }
   }, [chapterIndex, mode, chapterRefs])
 
-  if (isLoading) return <Centered>Loading chapters…</Centered>
+  // Still waiting for auto-fallback to resolve.
+  if (isLoading || (mdHasNoReadable && kkFallbackSearch.isLoading)) {
+    return <Centered>
+      {mdHasNoReadable ? 'Not on MangaDex — searching Mangakakalot…' : 'Loading chapters…'}
+    </Centered>
+  }
   if (isError) return <Centered>Source unreachable — retry.</Centered>
-  if (chapterRefs.length === 0) return <Centered>No chapters found.</Centered>
+  if (chapterRefs.length === 0) {
+    return <Centered>No readable chapters found on any source.</Centered>
+  }
+
+  const sourceLabel = activeSource === 'kakalot' ? ' (via Mangakakalot)' : ''
 
   return (
     <div className="relative h-full bg-black" style={{ background: mem.gapColor }}>
@@ -141,7 +191,12 @@ export default function ReaderShell({ seriesId, seriesSource, seriesType, onClos
         <button onClick={onClose} className="rounded-full bg-black/60 px-3 py-1 text-sm text-white">
           ← Back
         </button>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
+          {sourceLabel && (
+            <span className="rounded-full bg-orange-900/60 px-2 py-1 text-xs text-orange-300">
+              Kakalot
+            </span>
+          )}
           <button
             onClick={() => setSheet('versions')}
             className="rounded-full bg-black/60 px-3 py-1 text-sm text-white"
@@ -201,7 +256,7 @@ export default function ReaderShell({ seriesId, seriesSource, seriesType, onClos
 
 function Centered({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex h-full items-center justify-center bg-black text-neutral-400">
+    <div className="flex h-full items-center justify-center bg-black text-neutral-400 text-center px-8">
       {children}
     </div>
   )

@@ -100,17 +100,13 @@ export function useChapterFeed(mangaId: string | undefined) {
   return useQuery({
     queryKey: ['md', 'feed', mangaId],
     enabled: !!mangaId,
-    queryFn: async () => {
-      const data = await mdGet<MDList<MDChapter>>(`/manga/${mangaId}/feed`, {
+    queryFn: () =>
+      mdGet<MDList<MDChapter>>(`/manga/${mangaId}/feed`, {
         'translatedLanguage[]': ['en'],
         'order[chapter]': 'asc',
         limit: 500,
         'includes[]': ['scanlation_group'],
-      })
-      // Filter chapters that have no pages hosted on MangaDex (external-link-only chapters)
-      data.data = data.data.filter((c) => !c.attributes.externalUrl && c.attributes.pages > 0)
-      return data
-    },
+      }),
   })
 }
 
