@@ -4,17 +4,50 @@
 import { useQuery } from '@tanstack/react-query'
 import { mdGet } from './client'
 
-// --- Minimal typings for the endpoints Phase 0 uses ---
+// --- Minimal typings ---
+
+export interface MDCoverArt {
+  id: string
+  type: 'cover_art'
+  attributes: { fileName: string }
+}
 
 export interface MDManga {
   id: string
   type: 'manga'
   attributes: {
     title: Record<string, string>
+    altTitles: Array<Record<string, string>>
     status: string
     year: number | null
     contentRating: string
   }
+  relationships: Array<{ id: string; type: string; attributes?: { fileName?: string } }>
+}
+
+/** Best available English title: en altTitle > en title > romanized > first available. */
+export function mangaEnTitle(manga: MDManga): string {
+  const { title, altTitles = [] } = manga.attributes
+  // Prefer explicit English alt title
+  for (const alt of altTitles) {
+    if (alt.en) return alt.en
+  }
+  // Then English title key
+  if (title.en) return title.en
+  // Then romanized (already Latin script)
+  const roKeys = Object.keys(title).filter((k) => k.endsWith('-ro'))
+  if (roKeys.length) return title[roKeys[0]]
+  // Last resort: first available
+  return Object.values(title)[0] ?? 'Untitled'
+}
+
+/** Extract cover URL from a manga object that was fetched with includes[]=cover_art. */
+export function mangaCoverUrl(manga: MDManga): string | null {
+  const rel = manga.relationships.find((r) => r.type === 'cover_art')
+  const fileName = rel?.attributes?.fileName
+  if (!fileName) return null
+  // MangaDex cover CDN — served via uploads.mangadex.org (allowed in worker /img)
+  return `https://uploads.mangadex.org/covers/${manga.id}/${fileName}.256.jpg`
 }
 
 export interface MDChapter {
@@ -26,6 +59,7 @@ export interface MDChapter {
     translatedLanguage: string
     pages: number
     publishAt: string
+    externalUrl: string | null
   }
   relationships: Array<{ id: string; type: string }>
 }
@@ -36,11 +70,6 @@ interface MDList<T> {
   total: number
 }
 
-interface MDEntity<T> {
-  result: string
-  data: T
-}
-
 export interface AtHomeServer {
   result: string
   baseUrl: string
@@ -48,6 +77,8 @@ export interface AtHomeServer {
 }
 
 // --- Hooks ---
+
+const COVER_INCLUDE = { 'includes[]': ['cover_art'] }
 
 /** Search manga by title (English UI). */
 export function useSearch(title: string) {
@@ -59,34 +90,36 @@ export function useSearch(title: string) {
         title,
         limit: 20,
         'contentRating[]': ['safe', 'suggestive', 'erotica', 'pornographic'],
+        ...COVER_INCLUDE,
       }),
   })
 }
 
-/** English-only chapter feed for a series, ordered by chapter number ascending. */
+/** English-only chapter feed, external-only chapters filtered out. */
 export function useChapterFeed(mangaId: string | undefined) {
   return useQuery({
     queryKey: ['md', 'feed', mangaId],
     enabled: !!mangaId,
-    queryFn: () =>
-      mdGet<MDList<MDChapter>>(`/manga/${mangaId}/feed`, {
-        translatedLanguage: ['en'],
+    queryFn: async () => {
+      const data = await mdGet<MDList<MDChapter>>(`/manga/${mangaId}/feed`, {
+        'translatedLanguage[]': ['en'],
         'order[chapter]': 'asc',
-        limit: 100,
-        includes: ['scanlation_group'],
-      }),
+        limit: 500,
+        'includes[]': ['scanlation_group'],
+      })
+      // Filter chapters that have no pages hosted on MangaDex (external-link-only chapters)
+      data.data = data.data.filter((c) => !c.attributes.externalUrl && c.attributes.pages > 0)
+      return data
+    },
   })
 }
 
-/**
- * @Home image server for a chapter. Short cache — the baseUrl expires in ~15 min,
- * so we deliberately keep this fresh rather than serving a stale (dead) URL.
- */
+/** @Home image server. Short staleTime — baseUrl expires in ~15 min. */
 export function useAtHomeServer(chapterId: string | undefined) {
   return useQuery({
     queryKey: ['md', 'athome', chapterId],
     enabled: !!chapterId,
-    staleTime: 10 * 60 * 1000, // under the 15-min URL validity window
+    staleTime: 10 * 60 * 1000,
     gcTime: 12 * 60 * 1000,
     queryFn: () => mdGet<AtHomeServer>(`/at-home/server/${chapterId}`),
   })
@@ -101,6 +134,7 @@ export function usePopular() {
         limit: 20,
         'order[followedCount]': 'desc',
         'contentRating[]': ['safe', 'suggestive'],
+        ...COVER_INCLUDE,
       }),
   })
 }
@@ -115,13 +149,14 @@ export function useLatestUpdates() {
         limit: 20,
         'order[latestUploadedChapter]': 'desc',
         'contentRating[]': ['safe', 'suggestive'],
+        ...COVER_INCLUDE,
       }),
   })
 }
 
 export interface SearchFilters {
   title?: string
-  status?: string // ongoing|completed|hiatus|cancelled
+  status?: string
   year?: number
   contentRating?: string[]
 }
@@ -137,8 +172,9 @@ export function useAdvancedSearch(filters: SearchFilters) {
         year: filters.year,
         'contentRating[]': filters.contentRating ?? ['safe', 'suggestive'],
         limit: 30,
+        ...COVER_INCLUDE,
       }),
   })
 }
 
-export type { MDList, MDEntity }
+export type { MDList }

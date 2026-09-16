@@ -4,6 +4,15 @@ import { useSearch } from '../../lib/mangadex/queries'
 import { useKakalotSearch } from '../../lib/kakalot/queries'
 import { getSetting, setSetting } from '../../lib/db/repo'
 import { mangaTitle } from './SeriesCard'
+import { mangaCoverUrl, mangaEnTitle } from '../../lib/mangadex/queries'
+
+const PROXY_BASE =
+  (import.meta.env?.VITE_IMAGE_PROXY as string | undefined) ?? 'http://localhost:8787'
+function proxyCover(u: string) {
+  const p = new URL('/img', PROXY_BASE)
+  p.searchParams.set('u', u)
+  return p.toString()
+}
 import type { SeriesSource } from '../../App'
 
 const RECENT_KEY = 'search:recent'
@@ -81,15 +90,22 @@ export default function SearchScreen({
         <div className="mb-4">
           <div className="mb-2 text-xs font-semibold text-neutral-500">MangaDex</div>
           <div className="grid grid-cols-2 gap-3">
-            {mdResults.map((m) => (
-              <button
-                key={m.id}
-                onClick={() => { remember(debounced); onOpen(m.id, 'mangadex') }}
-                className="rounded-lg bg-neutral-800 p-3 text-left text-sm text-neutral-200"
-              >
-                {mangaTitle(m)}
-              </button>
-            ))}
+            {mdResults.map((m) => {
+              const rawCover = mangaCoverUrl(m)
+              const cover = rawCover ? proxyCover(rawCover) : null
+              return (
+                <button
+                  key={m.id}
+                  onClick={() => { remember(debounced); onOpen(m.id, 'mangadex') }}
+                  className="rounded-lg bg-neutral-800 text-left text-sm text-neutral-200 overflow-hidden"
+                >
+                  <div className="h-36 w-full bg-neutral-700">
+                    {cover && <img src={cover} alt={mangaTitle(m)} className="h-full w-full object-cover" loading="lazy" />}
+                  </div>
+                  <div className="line-clamp-2 p-2 text-xs">{mangaEnTitle(m)}</div>
+                </button>
+              )
+            })}
           </div>
         </div>
       )}
