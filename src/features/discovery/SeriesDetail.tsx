@@ -29,13 +29,14 @@ interface Props {
   id: string
   source: SeriesSource
   onBack: () => void
-  onRead: (readId?: string, readSource?: SeriesSource) => void
+  onRead: (readId?: string, readSource?: SeriesSource, startChapterId?: string) => void
 }
 
 const STATUS_LABEL: Record<number, string> = { 1: 'ongoing', 2: 'completed', 3: 'cancelled', 4: 'hiatus' }
 
 export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
   const isComick = source === 'comick'
+  const isKakalot = source === 'kakalot'
   const manga = useManga(source === 'mangadex' ? id : undefined)
   const feed = useChapterFeed(source === 'mangadex' ? id : undefined)
   const comic = useComickComic(isComick ? id : undefined)
@@ -47,7 +48,8 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
   const c = comic.data
   const hue = coverHue(id)
 
-  // Normalized display fields (source-aware)
+  // Normalized display fields (source-aware). Kakalot fields fill in below once
+  // the chapter feed (which carries title/cover) loads.
   const title = isComick ? (c?.title ?? '…') : (m ? mangaEnTitle(m) : '…')
   const cover = isComick ? comickCoverFrom(c?.md_covers) : (m ? mangaCoverUrl(m) : null)
   const synopsisText = isComick ? (c?.desc ?? '') : (m?.attributes.description?.en ?? '')
@@ -75,15 +77,21 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
 
   const isLicensed = feed.data != null && mdChapters.length === 0 && source === 'mangadex'
 
-  // Kakalot: fallback reader source for licensed MD series AND all Comick series
-  // (Comick's API doesn't expose page images, so reading routes through Kakalot).
+  // WeebCentral ('kakalot' key): direct source for its own search results, and the
+  // fallback reader source for licensed MD series AND all Comick series
+  // (Comick's API doesn't expose page images).
   const needsKakalot = isLicensed || isComick
-  const kkSearch = useKakalotSearch(needsKakalot && title && title !== '…' ? title : '')
-  const kkMangaId = kkSearch.data?.[0]?.id ?? null
+  const kkSearch = useKakalotSearch(!isKakalot && needsKakalot && title && title !== '…' ? title : '')
+  const kkMangaId = isKakalot ? id : (kkSearch.data?.[0]?.id ?? null)
   const kkFeed = useKakalotChapters(kkMangaId ?? '')
   const kkChapters = kkFeed.data?.chapters ?? []
+  const showKkChapters = isKakalot || isLicensed
 
-  const displayChapterCount = isComick ? ckChapters.length : (isLicensed ? kkChapters.length : mdChapters.length)
+  const displayChapterCount = isComick ? ckChapters.length : (showKkChapters ? kkChapters.length : mdChapters.length)
+
+  // Kakalot-source detail pages get title/cover from the chapter feed itself.
+  const shownTitle = isKakalot ? (kkFeed.data?.title || '…') : title
+  const shownCover = isKakalot ? (kkFeed.data?.cover || null) : cover
 
   const clamped = !synopsisExpanded && synopsisText.length > 148
 
@@ -96,11 +104,11 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
       {/* Blurred backdrop */}
       <div style={{
         position: 'absolute', top: 0, left: 0, right: 0, height: 340,
-        background: cover ? undefined : `linear-gradient(150deg, ${hue} 0%, color-mix(in oklab, ${hue} 36%, var(--y-bg)) 58%, var(--y-bg) 100%)`,
+        background: shownCover ? undefined : `linear-gradient(150deg, ${hue} 0%, color-mix(in oklab, ${hue} 36%, var(--y-bg)) 58%, var(--y-bg) 100%)`,
         overflow: 'hidden', zIndex: 0,
       }}>
-        {cover && (
-          <img src={cover} alt="" style={{
+        {shownCover && (
+          <img src={shownCover} alt="" style={{
             width: '100%', height: '100%', objectFit: 'cover',
             filter: 'blur(28px)', transform: 'scale(1.2)',
           }} />
@@ -130,10 +138,10 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
           <div style={{ width: 112, height: 158, borderRadius: 14, overflow: 'hidden', flexShrink: 0,
             background: `linear-gradient(150deg, ${hue} 0%, color-mix(in oklab, ${hue} 36%, var(--y-bg)) 58%, var(--y-bg) 100%)`,
             boxShadow: '0 16px 34px rgba(0,0,0,0.5)' }}>
-            {cover && <img src={cover} alt={title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+            {shownCover && <img src={shownCover} alt={shownTitle} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
           </div>
           <div style={{ flex: 1, paddingTop: 4 }}>
-            <h1 style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.1, color: 'var(--y-hi)', marginBottom: 4 }}>{title}</h1>
+            <h1 style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.1, color: 'var(--y-hi)', marginBottom: 4 }}>{shownTitle}</h1>
             {author && <div style={{ fontSize: 11.5, fontWeight: 500, color: 'var(--y-mid)', marginBottom: 8 }}>{author} · {statusLabel}</div>}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
               {statusLabel && (
@@ -146,7 +154,7 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
             <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
               <Star size={14} style={{ color: 'var(--y-a)', fill: 'var(--y-a)' }} />
               <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--y-hi)' }}>{isComick ? (c?.bayesian_rating ?? '—') : '—'}</span>
-              <span style={{ fontSize: 10.5, fontWeight: 500, color: 'var(--y-dim)' }}>· {isComick ? 'Comick' : 'MangaDex'}</span>
+              <span style={{ fontSize: 10.5, fontWeight: 500, color: 'var(--y-dim)' }}>· {isComick ? 'Comick' : isKakalot ? 'WeebCentral' : 'MangaDex'}</span>
             </div>
           </div>
         </div>
@@ -204,8 +212,8 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
             {isComick && (
               <span style={{ background: 'var(--y-aa)', color: 'var(--y-a)', fontSize: 9, fontWeight: 800, borderRadius: 6, padding: '2px 6px', marginLeft: 8, textTransform: 'uppercase' }}>Comick</span>
             )}
-            {isLicensed && kkChapters.length > 0 && (
-              <span style={{ background: 'var(--y-aa)', color: 'var(--y-a)', fontSize: 9, fontWeight: 800, borderRadius: 6, padding: '2px 6px', marginLeft: 8, textTransform: 'uppercase' }}>Mangapill</span>
+            {showKkChapters && kkChapters.length > 0 && (
+              <span style={{ background: 'var(--y-aa)', color: 'var(--y-a)', fontSize: 9, fontWeight: 800, borderRadius: 6, padding: '2px 6px', marginLeft: 8, textTransform: 'uppercase' }}>WeebCentral</span>
             )}
           </span>
           <button onClick={() => setOrder(o => o === 'desc' ? 'asc' : 'desc')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 700, color: 'var(--y-dim)' }}>
@@ -214,7 +222,7 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
         </div>
 
         {/* Loading state */}
-        {((feed.isLoading && !isComick) || (isComick && (comic.isLoading || ckFeed.isLoading)) || (isLicensed && (kkSearch.isLoading || kkFeed.isLoading))) && (
+        {((feed.isLoading && !isComick && !isKakalot) || (isComick && (comic.isLoading || ckFeed.isLoading)) || ((isLicensed || isKakalot) && (kkSearch.isLoading || kkFeed.isLoading))) && (
           <div style={{ padding: '12px 18px' }}>
             {[0,1,2,3,4].map(i => <div key={i} style={{ height: 60, borderRadius: 10, background: 'var(--y-surf)', marginBottom: 8 }} />)}
           </div>
@@ -245,7 +253,7 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
           const group = groupName(ch)
           const when = timeAgo(ch.attributes.publishAt)
           return (
-            <button key={ch.id} onClick={() => onRead(ch.id)} style={{
+            <button key={ch.id} onClick={() => onRead(id, 'mangadex', ch.id)} style={{
               width: '100%', minHeight: 60, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
               padding: '10px 18px', background: 'none', border: 'none', cursor: 'pointer',
               borderTop: '1px solid var(--y-line2)', textAlign: 'left',
@@ -261,18 +269,18 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
           )
         })}
 
-        {/* Kakalot chapters (for licensed series) */}
-        {isLicensed && !isComick && kkChapters.map((ch) => {
+        {/* WeebCentral chapters (kakalot-source series + licensed fallback) */}
+        {showKkChapters && !isComick && kkChapters.map((ch) => {
           const displayNum = ch.number ?? '?'
           return (
-            <button key={ch.id} onClick={() => onRead(kkMangaId ?? undefined, 'kakalot')} style={{
+            <button key={ch.id} onClick={() => onRead(kkMangaId ?? undefined, 'kakalot', ch.id)} style={{
               width: '100%', minHeight: 60, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
               padding: '10px 18px', background: 'none', border: 'none', cursor: 'pointer',
               borderTop: '1px solid var(--y-line2)', textAlign: 'left',
             }}>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--y-hi)', marginBottom: 3 }}>Chapter {displayNum}</div>
-                <div style={{ fontSize: 11, fontWeight: 500, color: 'var(--y-dim)' }}>{ch.title ?? 'Mangapill'}</div>
+                <div style={{ fontSize: 11, fontWeight: 500, color: 'var(--y-dim)' }}>{ch.title ?? 'WeebCentral'}</div>
               </div>
             </button>
           )
@@ -281,10 +289,12 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
         {displayChapterCount > 0 && (
           <p style={{ fontSize: 10.5, fontWeight: 500, color: 'var(--y-dim)', padding: '8px 18px 100px', lineHeight: 1.55 }}>
             {isComick
-              ? 'Chapter list from Comick. Reading opens the matching series on Mangapill.'
-              : isLicensed
-                ? 'Chapters sourced from Mangapill (licensed on MangaDex).'
-                : 'Only English chapters with pages on MangaDex are listed.'}
+              ? 'Chapter list from Comick. Reading opens the matching series on WeebCentral.'
+              : isKakalot
+                ? 'Chapters sourced from WeebCentral.'
+                : isLicensed
+                  ? 'Chapters sourced from WeebCentral (licensed on MangaDex).'
+                  : 'Only English chapters with pages on MangaDex are listed.'}
           </p>
         )}
 
@@ -293,10 +303,10 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
           <button
             disabled={(isComick || isLicensed) && !kkMangaId}
             onClick={() => {
-              if (isComick || isLicensed) {
+              if (isComick || isLicensed || isKakalot) {
                 onRead(kkMangaId ?? undefined, 'kakalot')
               } else {
-                onRead(lastMdChapter?.id ?? firstMdChapter?.id, 'mangadex')
+                onRead(id, 'mangadex', lastMdChapter?.id ?? firstMdChapter?.id)
               }
             }} style={{
             width: '100%', height: 52, borderRadius: 14,
@@ -305,8 +315,8 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
             fontSize: 15, fontWeight: 700, border: 'none', cursor: (isComick || isLicensed) && !kkMangaId ? 'default' : 'pointer',
           }}>
             {isComick
-              ? (kkMangaId ? 'Read on Mangapill' : (kkSearch.isLoading ? 'Finding readable source…' : 'No readable source found'))
-              : isLicensed
+              ? (kkMangaId ? 'Read on WeebCentral' : (kkSearch.isLoading ? 'Finding readable source…' : 'No readable source found'))
+              : (isLicensed || isKakalot)
                 ? (lastKkChapter ? `Continue · Ch. ${lastKkChapter.number ?? '1'}` : 'Start reading · Ch. 1')
                 : (lastMdChapter ? `Continue · Ch. ${lastMdChapter.attributes.chapter ?? '1'}` : 'Start reading · Ch. 1')
             }

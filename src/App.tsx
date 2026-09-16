@@ -22,7 +22,7 @@ export type SeriesSource = 'mangadex' | 'kakalot' | 'comick'
 // Non-tab overlaid screens
 type OverlayScreen =
   | { kind: 'detail'; id: string; source: SeriesSource }
-  | { kind: 'reader'; id: string; source: SeriesSource; type: SeriesType }
+  | { kind: 'reader'; id: string; source: SeriesSource; type: SeriesType; startChapterId?: string }
   | { kind: 'unread' }
   | { kind: 'local' }
 
@@ -50,8 +50,8 @@ export default function App() {
     setOverlay({ kind: 'detail', id, source })
   }
 
-  function openReader(id: string, source: SeriesSource, type: SeriesType = 'manga') {
-    setOverlay({ kind: 'reader', id, source, type })
+  function openReader(id: string, source: SeriesSource, type: SeriesType = 'manga', startChapterId?: string) {
+    setOverlay({ kind: 'reader', id, source, type, startChapterId })
   }
 
   function switchTab(t: Tab) {
@@ -73,6 +73,7 @@ export default function App() {
             seriesId={overlay.id}
             seriesSource={overlay.source}
             seriesType={overlay.type}
+            startChapterId={overlay.startChapterId}
             onClose={goBack}
           />
         </div>
@@ -91,7 +92,8 @@ export default function App() {
               id={overlay.id}
               source={overlay.source}
               onBack={goBack}
-              onRead={(readId, readSource) => openReader(readId ?? overlay.id, readSource ?? overlay.source)}
+              onRead={(readId, readSource, startChapterId) =>
+                openReader(readId ?? overlay.id, readSource ?? overlay.source, 'manga', startChapterId)}
             />
           )}
           {overlay?.kind === 'local' && (

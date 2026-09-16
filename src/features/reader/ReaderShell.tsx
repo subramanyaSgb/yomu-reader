@@ -30,6 +30,7 @@ interface Props {
   seriesId: string
   seriesSource: SeriesSource
   seriesType: SeriesType
+  startChapterId?: string
   onClose?: () => void
 }
 
@@ -37,13 +38,12 @@ function defaultMode(type: SeriesType): ReadMode {
   return type === 'manga' ? 'paged' : 'scroll'
 }
 
-export default function ReaderShell({ seriesId, seriesSource, seriesType, onClose }: Props) {
+export default function ReaderShell({ seriesId, seriesSource, seriesType, startChapterId, onClose }: Props) {
   const { mem, update } = useReaderMemory(seriesId)
   const [chapterIndex, setChapterIndex] = useState(0)
   const [sheet, setSheet] = useState<'controls' | 'versions' | null>(null)
   const [overrides, setOverrides] = useState<Record<string, string>>({})
 
-  const mode = mem.mode ?? defaultMode(seriesType)
   useWakeLock(true)
 
   // Always fetch MangaDex chapters when source is mangadex.
@@ -91,6 +91,17 @@ export default function ReaderShell({ seriesId, seriesSource, seriesType, onClos
     (kkFeed.isLoading || kkFallbackSearch.isLoading || mdFeed.isLoading)
   const isError = activeSource === 'mangadex' ? mdFeed.isError : kkFeed.isError
 
+  // Derive the real series type from source metadata so manhwa/manhua default to
+  // long-strip scroll: WeebCentral reports kind directly; MangaDex via originalLanguage.
+  const kkKind = kkFeed.data?.kind
+  const mdLang = mdMeta.data?.data?.[0]?.attributes?.originalLanguage
+  const derivedType: SeriesType | null =
+    activeSource === 'kakalot'
+      ? (kkKind === 'manhwa' || kkKind === 'oel' ? 'manhwa'  // oel = English webtoon, long-strip
+        : kkKind === 'manhua' ? 'manhua' : kkKind ? 'manga' : null)
+      : (mdLang === 'ko' ? 'manhwa' : mdLang?.startsWith('zh') ? 'manhua' : mdLang === 'ja' ? 'manga' : null)
+  const mode = mem.mode ?? defaultMode(derivedType ?? seriesType)
+
   // Stats tracking
   const prevChapterRef = useRef<string | null>(null)
   const chapterRefsRef = useRef<ChapterRef[]>([])
@@ -127,7 +138,7 @@ export default function ReaderShell({ seriesId, seriesSource, seriesType, onClos
       return (kkFeed.data?.chapters ?? []).map((c) => ({
         number: c.number,
         selectedVersionId: c.id,
-        versions: [{ id: c.id, group: 'Mangapill', likes: 0, pages: 0 }],
+        versions: [{ id: c.id, group: 'WeebCentral', likes: 0, pages: 0 }],
       } as ResolvedChapter))
     }
     return []
@@ -144,6 +155,15 @@ export default function ReaderShell({ seriesId, seriesSource, seriesType, onClos
 
   useEffect(() => {
     if (restored || chapterRefs.length === 0) return
+    // Explicit start chapter (user tapped a specific chapter) beats saved progress.
+    if (startChapterId) {
+      const idx = chapterRefs.findIndex((c) => c.id === startChapterId)
+      if (idx >= 0) {
+        setChapterIndex(idx)
+        setRestored(true)
+        return
+      }
+    }
     let alive = true
     restoreProgress(seriesId).then((p) => {
       if (!alive || !p) { setRestored(true); return }
@@ -152,7 +172,7 @@ export default function ReaderShell({ seriesId, seriesSource, seriesType, onClos
       setRestored(true)
     })
     return () => { alive = false }
-  }, [restored, chapterRefs, seriesId])
+  }, [restored, chapterRefs, seriesId, startChapterId])
 
   useEffect(() => {
     const ref = chapterRefs[chapterIndex]
@@ -175,7 +195,7 @@ export default function ReaderShell({ seriesId, seriesSource, seriesType, onClos
   // Still waiting for auto-fallback to resolve.
   if (isLoading || (mdHasNoReadable && kkFallbackSearch.isLoading)) {
     return <Centered>
-      {mdHasNoReadable ? 'Not on MangaDex — searching Mangapill…' : 'Loading chapters…'}
+      {mdHasNoReadable ? 'Not on MangaDex — searching WeebCentral…' : 'Loading chapters…'}
     </Centered>
   }
   if (isError) return <Centered>Source unreachable — retry.</Centered>
@@ -183,7 +203,7 @@ export default function ReaderShell({ seriesId, seriesSource, seriesType, onClos
     return <Centered>No readable chapters found on any source.</Centered>
   }
 
-  const sourceLabel = activeSource === 'kakalot' ? ' (via Mangapill)' : ''
+  const sourceLabel = activeSource === 'kakalot' ? ' (via WeebCentral)' : ''
 
   return (
     <div style={{ position: 'relative', height: '100%', background: mem.gapColor || 'var(--y-black)' }}>
@@ -199,7 +219,7 @@ export default function ReaderShell({ seriesId, seriesSource, seriesType, onClos
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {sourceLabel && (
             <span style={{ background: 'rgba(242,193,78,0.2)', color: 'var(--y-a)', fontSize: 9.5, fontWeight: 800, borderRadius: 20, padding: '4px 10px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-              Mangapill
+              WeebCentral
             </span>
           )}
           <button onClick={() => setSheet('versions')} style={{ height: 36, padding: '0 12px', borderRadius: 20, background: 'rgba(255,255,255,0.1)', border: 'none', cursor: 'pointer', color: '#fff', backdropFilter: 'blur(8px)', fontSize: 12, fontWeight: 700 }}>

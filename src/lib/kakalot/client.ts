@@ -16,6 +16,7 @@ export interface KakalotManga {
   id: string
   title: string
   cover: string
+  kind?: string     // 'manga' | 'manhwa' | 'manhua' | ... from the source site
   source: 'kakalot'
 }
 
@@ -39,7 +40,7 @@ export async function kkSearch(query: string): Promise<KakalotManga[]> {
 
 export async function kkChapters(
   mangaId: string,
-): Promise<{ title: string; chapters: KakalotChapter[]; cover: string }> {
+): Promise<{ title: string; chapters: KakalotChapter[]; cover: string; kind?: string }> {
   const res = await fetch(scrapeUrl('chapters', { id: mangaId }))
   if (!res.ok) return { title: '', chapters: [], cover: '' }
   return res.json()

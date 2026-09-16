@@ -23,6 +23,7 @@ export interface MDManga {
     status: string
     year: number | null
     contentRating: string
+    originalLanguage?: string  // 'ja' | 'ko' | 'zh' | 'zh-hk' | ...
     tags: Array<{ id: string; attributes: { name: Record<string, string>; group: string } }>
   }
   relationships: Array<{ id: string; type: string; attributes?: { fileName?: string; name?: string } }>
@@ -99,18 +100,32 @@ export function useSearch(title: string) {
   })
 }
 
-/** English-only chapter feed, external-only chapters filtered out. */
+/** English-only chapter feed. Paginates past MD's 500-per-request cap so long series
+ *  (multiple groups × hundreds of chapters) never miss chapters. */
 export function useChapterFeed(mangaId: string | undefined) {
   return useQuery({
     queryKey: ['md', 'feed', mangaId],
     enabled: !!mangaId,
-    queryFn: () =>
-      mdGet<MDList<MDChapter>>(`/manga/${mangaId}/feed`, {
-        'translatedLanguage[]': ['en'],
-        'order[chapter]': 'asc',
-        limit: 500,
-        'includes[]': ['scanlation_group'],
-      }),
+    queryFn: async (): Promise<MDList<MDChapter>> => {
+      const limit = 500
+      const all: MDChapter[] = []
+      let offset = 0
+      for (;;) {
+        const page = await mdGet<MDList<MDChapter>>(`/manga/${mangaId}/feed`, {
+          'translatedLanguage[]': ['en'],
+          'order[chapter]': 'asc',
+          limit,
+          offset,
+          'includes[]': ['scanlation_group'],
+        })
+        all.push(...page.data)
+        offset += limit
+        // ponytail: 4000-entry ceiling guards against pathological feeds
+        if (page.data.length < limit || all.length >= page.total || offset >= 4000) {
+          return { result: 'ok', data: all, total: page.total }
+        }
+      }
+    },
   })
 }
 

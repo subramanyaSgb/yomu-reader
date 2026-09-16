@@ -3,12 +3,14 @@
 //   GET /img?u=<encoded @Home URL>&q=<source|low>   — MangaDex image proxy
 //   GET /api/<path>?<qs>                             — MangaDex API proxy (CORS-locked from browser)
 //   GET /comick/<path>?<qs>                          — Comick API proxy
-//   GET /scrape?site=kakalot&action=<...>&<params>   — fallback-source scraper (Mangapill upstream)
+//   GET /scrape?site=kakalot&action=<...>&<params>   — fallback-source scraper (WeebCentral upstream)
 //
 // NOTE: the wire key stays `site=kakalot` / source:'kakalot' for backward compat with the
-// deployed frontend and stored library data, but the upstream is now Mangapill —
-// the Mangakakalot network put Cloudflare managed challenges on all manga/chapter pages
-// (2026-09), which blocks Worker fetches. Mangapill serves plain HTML with no challenge.
+// deployed frontend and stored library data, but the upstream is now WeebCentral.
+// History: Mangakakalot network → CF managed challenges block Worker fetches (2026-09);
+// Mangapill → no challenge but licensed manhwa (Solo Leveling etc.) removed from catalog
+// and search ranks light novels first. WeebCentral has complete chapter lists including
+// licensed manhwa, no challenge, and comics only (no light novels).
 //
 // SECURITY: restricted proxy — each route only allows its specific upstream host(s).
 
@@ -17,9 +19,11 @@ const ALLOWED_UPLOADS = 'uploads.mangadex.org'
 const MANGADEX_API = 'https://api.mangadex.org'
 const COMICK_API = 'https://api.comick.dev'
 
-// Mangapill (fallback reading source)
-const PILL = 'https://mangapill.com'
-const PILL_IMG_HOST = /(^|\.)readdetectiveconan\.com$/
+// WeebCentral (fallback reading source — complete chapter lists incl. licensed manhwa)
+const WC = 'https://weebcentral.com'
+const WC_COVER_CDN = 'https://temp.compsci88.com'
+// MangaSee-lineage image CDNs used by WeebCentral chapters + covers
+const WC_IMG_HOST = /(^|\.)(planeptune\.us|lowee\.us|lastation\.us|compsci88\.com|weebcentral\.com)$/
 const BROWSER_UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
 
@@ -42,12 +46,13 @@ function json(data: unknown, origin: string | null, status = 200): Response {
   return new Response(JSON.stringify(data), { status, headers: h })
 }
 
-// --- Mangapill scraper helpers (regex over plain server-rendered HTML) ---
+// --- WeebCentral scraper helpers (regex over server-rendered HTML/HTMX fragments) ---
 
 interface KakalotManga {
-  id: string        // Mangapill path after /manga/, e.g. "3069/naruto"
+  id: string        // WeebCentral path after /series/, e.g. "01J76XYCPSY3C4BNPBRY8JMCBE/Solo-Leveling"
   title: string
   cover: string     // pre-proxied through this worker's img action
+  kind: string      // 'manga' | 'manhwa' | 'manhua' | ... (lowercased site type)
   source: 'kakalot'
 }
 
@@ -62,21 +67,21 @@ interface KakalotPage {
   src: string       // raw image CDN URL (frontend wraps it in the img action)
 }
 
-async function pillFetch(url: string): Promise<string | null> {
+async function wcFetch(url: string): Promise<string | null> {
   const res = await fetch(url, {
     headers: {
       'User-Agent': BROWSER_UA,
       Accept: 'text/html,application/xhtml+xml,*/*;q=0.8',
-      Referer: PILL + '/',
+      Referer: WC + '/',
     },
   })
   if (!res.ok) return null
   return res.text()
 }
 
-// Build a URL that serves an upstream image through this worker (Referer spoof).
+// Build a URL that serves an upstream image through this worker (CORS + cache).
 function proxiedImageUrl(workerOrigin: string, src: string): string {
-  return `${workerOrigin}/scrape?site=kakalot&action=img&u=${encodeURIComponent(src)}&ref=${encodeURIComponent(PILL + '/')}`
+  return `${workerOrigin}/scrape?site=kakalot&action=img&u=${encodeURIComponent(src)}&ref=${encodeURIComponent(WC + '/')}`
 }
 
 function decodeEntities(s: string): string {
@@ -86,24 +91,33 @@ function decodeEntities(s: string): string {
     .trim()
 }
 
+function wcCoverUrl(seriesUlid: string): string {
+  return `${WC_COVER_CDN}/cover/normal/${seriesUlid}.webp`
+}
+
 async function scrapeSearch(query: string, workerOrigin: string): Promise<KakalotManga[]> {
-  const html = await pillFetch(`${PILL}/search?q=${encodeURIComponent(query.trim())}`)
+  const q = encodeURIComponent(query.trim())
+  const html = await wcFetch(
+    `${WC}/search/data?limit=24&offset=0&text=${q}&sort=Best%20Match&order=Ascending&official=Any&display_mode=Full%20Display`,
+  )
   if (!html) return []
 
-  // Card shape: <a href="/manga/ID/SLUG" class="relative block">…<img data-src="COVER"…
-  //             <a href="/manga/ID/SLUG" class="mb-2"><div …>TITLE</div>
-  const covers = new Map<string, string>()
-  for (const m of html.matchAll(/<a href="(\/manga\/[^"]+)" class="relative block">[\s\S]{0,600}?data-src="([^"]+)"/g)) {
-    covers.set(m[1], m[2])
-  }
+  // One <article class="bg-base-300…"> per result. Within it:
+  //   <a href="https://weebcentral.com/series/{ULID}/{Slug}">
+  //   <img … alt="{Title} cover" …>
+  //   <span class="tooltip …" data-tip="{Manhwa|Manga|Manhua|…}">
   const results: KakalotManga[] = []
-  for (const m of html.matchAll(/<a href="(\/manga\/[^"]+)" class="mb-2">\s*<div[^>]*>([^<]+)<\/div>/g)) {
-    const href = m[1]
-    const cover = covers.get(href) ?? ''
+  const cards = html.split('<article class="bg-base-300')
+  for (const card of cards.slice(1)) {
+    const link = card.match(/href="https:\/\/weebcentral\.com\/series\/([A-Z0-9]+)\/([^"]+)"/)
+    if (!link) continue
+    const title = card.match(/alt="([^"]+) cover"/)?.[1] ?? link[2].replace(/-/g, ' ')
+    const kind = (card.match(/data-tip="(Manga|Manhwa|Manhua|OEL|Comic)"/i)?.[1] ?? 'manga').toLowerCase()
     results.push({
-      id: href.replace(/^\/manga\//, ''),
-      title: decodeEntities(m[2]),
-      cover: cover ? proxiedImageUrl(workerOrigin, cover) : '',
+      id: `${link[1]}/${link[2]}`,
+      title: decodeEntities(title),
+      cover: proxiedImageUrl(workerOrigin, wcCoverUrl(link[1])),
+      kind,
       source: 'kakalot',
     })
     if (results.length >= 24) break
@@ -114,42 +128,49 @@ async function scrapeSearch(query: string, workerOrigin: string): Promise<Kakalo
 async function scrapeChapters(
   mangaId: string,
   workerOrigin: string,
-): Promise<{ title: string; chapters: KakalotChapter[]; cover: string }> {
-  const html = await pillFetch(`${PILL}/manga/${mangaId}`)
-  if (!html) return { title: '', chapters: [], cover: '' }
+): Promise<{ title: string; chapters: KakalotChapter[]; cover: string; kind: string }> {
+  const ulid = mangaId.split('/')[0]
+  // Chapter list is a separate HTMX fragment; series page supplies title + type.
+  const [listHtml, pageHtml] = await Promise.all([
+    wcFetch(`${WC}/series/${ulid}/full-chapter-list`),
+    wcFetch(`${WC}/series/${mangaId}`),
+  ])
+  if (!listHtml) return { title: '', chapters: [], cover: '', kind: 'manga' }
 
-  const title = decodeEntities(html.match(/<h1[^>]*>([^<]+)<\/h1>/)?.[1] ?? '')
-  const rawCover = html.match(/property="og:image" content="([^"]+)"/)?.[1] ?? ''
+  const title = decodeEntities(pageHtml?.match(/<h1[^>]*>([^<]+)<\/h1>/)?.[1] ?? '')
+  // Type appears in the meta description: "Read {Title} {Type} online for free…"
+  const kind = (pageHtml?.match(/Read .+ (Manga|Manhwa|Manhua|OEL|Comic) online/i)?.[1] ?? 'manga').toLowerCase()
 
   const chapters: KakalotChapter[] = []
-  for (const m of html.matchAll(/<a [^>]*href="(\/chapters\/[^"]+)"[^>]*>([^<]*)</g)) {
-    const href = m[1]
-    const numMatch = href.match(/chapter-([\d.]+)\/?$/)
+  for (const m of listHtml.matchAll(/href="(?:https:\/\/weebcentral\.com)?(\/chapters\/[A-Z0-9]+)"[\s\S]{0,600}?<span class="">([^<]+)<\/span>/g)) {
+    const label = decodeEntities(m[2])
+    const num = label.match(/(\d+(?:\.\d+)?)\s*$/)?.[1] ?? null
     chapters.push({
-      id: PILL + href,
-      number: numMatch ? numMatch[1] : null,
-      title: decodeEntities(m[2]) || null,
+      id: WC + m[1],
+      number: num,
+      title: label,
       publishAt: '',
     })
   }
-  // Page lists newest-first; reverse to ascending for the reader.
+  // List is newest-first; reverse to ascending for the reader.
   return {
     title,
     chapters: chapters.reverse(),
-    cover: rawCover ? proxiedImageUrl(workerOrigin, rawCover) : '',
+    cover: proxiedImageUrl(workerOrigin, wcCoverUrl(ulid)),
+    kind,
   }
 }
 
 async function scrapePages(chapterUrl: string): Promise<KakalotPage[]> {
   let parsed: URL
   try { parsed = new URL(chapterUrl) } catch { return [] }
-  if (parsed.host !== 'mangapill.com' && parsed.host !== 'www.mangapill.com') return []
+  if (parsed.host !== 'weebcentral.com' && parsed.host !== 'www.weebcentral.com') return []
 
-  const html = await pillFetch(parsed.toString())
+  const html = await wcFetch(`${parsed.origin}${parsed.pathname}/images?is_prev=False&current_page=1&reading_style=long_strip`)
   if (!html) return []
 
   const pages: KakalotPage[] = []
-  for (const m of html.matchAll(/data-src="(https:\/\/[^"]+\/file\/mangap\/[^"]+)"/g)) {
+  for (const m of html.matchAll(/<img[^>]*src="(https:\/\/[^"]+)"/g)) {
     pages.push({ src: m[1] })
   }
   return pages
@@ -161,7 +182,7 @@ async function proxyKakalotImage(imageUrl: string, referer: string, origin: stri
   try { parsed = new URL(imageUrl) } catch {
     return new Response('Bad image URL', { status: 400, headers: corsHeaders(origin) })
   }
-  if (!PILL_IMG_HOST.test(parsed.host)) {
+  if (!WC_IMG_HOST.test(parsed.host)) {
     return new Response('Forbidden host', { status: 403, headers: corsHeaders(origin) })
   }
 
@@ -242,7 +263,7 @@ export default {
           const target = url.searchParams.get('u') ?? ''
           let p: URL
           try { p = new URL(target) } catch { return json({ error: 'bad url' }, origin, 400) }
-          if (!/(^|\.)(mangapill\.com|readdetectiveconan\.com|mangakakalot\.gg|natomanga\.com)$/.test(p.host)) {
+          if (!/(^|\.)(mangapill\.com|readdetectiveconan\.com|mangakakalot\.gg|natomanga\.com|weebcentral\.com|planeptune\.us)$/.test(p.host)) {
             return json({ error: 'forbidden host' }, origin, 403)
           }
           const res = await fetch(p.toString(), {
@@ -281,7 +302,7 @@ export default {
 
         if (action === 'img') {
           const imageUrl = url.searchParams.get('u') ?? ''
-          const referer = url.searchParams.get('ref') ?? `${PILL}/`
+          const referer = url.searchParams.get('ref') ?? `${WC}/`
           return proxyKakalotImage(imageUrl, referer, origin)
         }
 

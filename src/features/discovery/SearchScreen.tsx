@@ -172,7 +172,7 @@ export default function SearchScreen({ onOpen }: { onOpen: (id: string, source: 
       {/* Kakalot results */}
       {!isLoading && kkResults.length > 0 && (
         <div style={{ padding: '0 18px' }}>
-          <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--y-dim)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 10 }}>Mangapill</div>
+          <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--y-dim)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 10 }}>WeebCentral</div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px 16px' }}>
             {kkResults.map(m => {
               const hue = coverHue(m.id)
@@ -183,7 +183,7 @@ export default function SearchScreen({ onOpen }: { onOpen: (id: string, source: 
                     background: `linear-gradient(150deg, ${hue} 0%, color-mix(in oklab, ${hue} 36%, var(--y-bg)) 58%, var(--y-bg) 100%)` }}>
                     {m.cover && <img src={m.cover} alt={m.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />}
                     <div style={{ position: 'absolute', bottom: 8, left: 8 }}>
-                      <span style={{ background: 'var(--y-ok)', color: 'var(--y-onp)', fontSize: 9, fontWeight: 800, borderRadius: 6, padding: '2px 6px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>MP</span>
+                      <span style={{ background: 'var(--y-ok)', color: 'var(--y-onp)', fontSize: 9, fontWeight: 800, borderRadius: 6, padding: '2px 6px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>WC</span>
                     </div>
                   </div>
                   <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--y-hi)', marginTop: 6, lineHeight: 1.3,
