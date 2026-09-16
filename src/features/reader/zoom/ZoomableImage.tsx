@@ -2,7 +2,7 @@
 // Double-tap zoom removed by owner request (it fired accidentally while reading).
 // Uses pure zoomMath so the tricky part is already tested.
 
-import { useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import { useRef, useState, useReducer, type PointerEvent as ReactPointerEvent } from 'react'
 import {
   identity,
   zoomToPoint,
@@ -25,6 +25,8 @@ export default function ZoomableImage({ src, alt = '', onZoomChange, onTap }: Pr
   const pinch = useRef<{ dist: number; scale: number } | null>(null)
   const pointers = useRef(new Map<number, { x: number; y: number }>())
   const downPos = useRef<{ x: number; y: number } | null>(null)
+  const [failed, setFailed] = useState(false)
+  const [retryNonce, bumpRetry] = useReducer((n: number) => n + 1, 0)
 
   function size() {
     const r = ref.current?.getBoundingClientRect()
@@ -101,28 +103,54 @@ export default function ZoomableImage({ src, alt = '', onZoomChange, onTap }: Pr
       // CRITICAL: touch-action must allow vertical panning at 1x or the long-strip
       // cannot be scrolled by touch at all (every image swallowed the gesture).
       // Only lock gestures while actually zoomed (panning the image ourselves).
-      style={{ touchAction: t.scale > 1 ? 'none' : 'pan-y' }}
+      // content-visibility: offscreen pages skip layout/paint and their decoded
+      // bitmaps get discarded — long sessions stay flat on memory. `auto <est>`
+      // remembers the real size once rendered, so no scroll jumps.
+      style={{
+        touchAction: t.scale > 1 ? 'none' : 'pan-y',
+        contentVisibility: 'auto',
+        containIntrinsicSize: 'auto 600px',
+      }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerUp}
     >
       <img
-        src={src}
+        key={retryNonce}
+        src={retryNonce > 0 ? `${src}${src.includes('?') ? '&' : '?'}r=${retryNonce}` : src}
         alt={alt}
         loading="lazy"
+        decoding="async"
         draggable={false}
         className="w-full select-none"
         style={{ transform: toCss(t), transformOrigin: '0 0' }}
         onError={(e) => {
-          // Per-image recovery (FR-36 AC3): one silent retry with a cache-buster.
+          // Per-image recovery (FR-36 AC3): one silent retry with a cache-buster,
+          // then a visible tap-to-retry placeholder instead of a dead blank space.
           const img = e.currentTarget
           if (!img.dataset.retried) {
             img.dataset.retried = '1'
-            img.src = `${src}${src.includes('?') ? '&' : '?'}r=1`
+            img.src = `${src}${src.includes('?') ? '&' : '?'}r=auto`
+          } else {
+            setFailed(true)
           }
         }}
+        onLoad={() => { if (failed) setFailed(false) }}
       />
+      {failed && (
+        <button
+          onClick={() => { setFailed(false); bumpRetry() }}
+          style={{
+            position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column',
+            alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 180,
+            background: 'rgba(255,255,255,0.04)', border: '1px dashed rgba(255,255,255,0.2)',
+            color: '#9ca3af', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+          }}>
+          <span style={{ fontSize: 20 }}>⟳</span>
+          Page failed to load — tap to retry
+        </button>
+      )}
     </div>
   )
 }

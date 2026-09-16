@@ -10,10 +10,13 @@ import BottomNav from './components/BottomNav'
 import OfflineBanner from './features/reliability/OfflineBanner'
 import OnboardingScreen from './features/onboarding/OnboardingScreen'
 import { hasSeenOnboarding } from './features/onboarding/Onboarding'
+import { lazy, Suspense } from 'react'
 import ShelfScreen from './features/shelf/ShelfScreen'
 import UpcomingScreen from './features/shelf/UpcomingScreen'
 import SeriesDetail from './features/discovery/SeriesDetail'
-import ReaderShell from './features/reader/ReaderShell'
+// The reader (renderers, zoom math, resume, HUD) is the heaviest screen and isn't
+// needed to browse shelves — split it out of the startup bundle.
+const ReaderShell = lazy(() => import('./features/reader/ReaderShell'))
 import { markReadingIfWanted, type Shelf } from './features/shelf/shelf'
 import { migrateChangedIds } from './features/shelf/idMigration'
 import type { SeriesType } from './lib/db/schema'
@@ -109,13 +112,15 @@ export default function App() {
     return (
       <ToastProvider>
         <div style={{ height: '100dvh', background: 'var(--y-black)' }}>
-          <ReaderShell
-            seriesId={overlay.id}
-            seriesSource={overlay.source}
-            seriesType={overlay.type}
-            startChapterId={overlay.startChapterId}
-            onClose={goBack}
-          />
+          <Suspense fallback={<div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af', fontSize: 13 }}>Opening reader…</div>}>
+            <ReaderShell
+              seriesId={overlay.id}
+              seriesSource={overlay.source}
+              seriesType={overlay.type}
+              startChapterId={overlay.startChapterId}
+              onClose={goBack}
+            />
+          </Suspense>
         </div>
       </ToastProvider>
     )

@@ -271,14 +271,19 @@ async function proxyKakalotImage(imageUrl: string, referer: string, origin: stri
 
   // Referer must match the host's own site — clients can't know that mapping.
   const effectiveReferer = /(cmzcdn\.org|comizy\.io)$/.test(parsed.host) ? COMIZY_REF : referer
+  const upHeaders = { Referer: effectiveReferer, 'User-Agent': BROWSER_UA }
 
-  const upstream = await fetch(imageUrl, {
-    headers: {
-      Referer: effectiveReferer,
-      'User-Agent': BROWSER_UA,
-    },
+  let upstream = await fetch(imageUrl, {
+    headers: upHeaders,
     cf: { cacheEverything: true, cacheTtl: 86_400 },
   })
+  if (!upstream.ok) {
+    // Same lesson as /img: cacheEverything can pin a transient upstream error at the
+    // edge — retry once with a throwaway param (fresh cache key, retry not cached).
+    const bust = new URL(parsed.toString())
+    bust.searchParams.set('yomu-retry', crypto.randomUUID())
+    upstream = await fetch(bust.toString(), { headers: upHeaders, cf: { cacheTtl: 0 } })
+  }
   if (!upstream.ok) {
     return new Response('Upstream error', { status: upstream.status, headers: corsHeaders(origin) })
   }
