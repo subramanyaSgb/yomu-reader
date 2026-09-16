@@ -50,11 +50,40 @@ export interface Setting<T = unknown> {
   value: T
 }
 
+export type StorageTier = 'cache' | 'download'
+
+/** Cached image bytes. Key is `${chapterId}:${pageIndex}`. TDD §4/§7. */
+export interface ImageBytes {
+  key: string
+  chapterId: string
+  pageIndex: number
+  blob: Blob
+  tier: StorageTier
+  bytes: number
+  lastAccess: number
+}
+
+export type DownloadScope = 'single' | 'range' | 'series' | 'auto'
+export type DownloadStatus = 'queued' | 'downloading' | 'done' | 'error'
+
+export interface Download {
+  chapterId: string
+  seriesId: string
+  scope: DownloadScope
+  status: DownloadStatus
+  pagesTotal: number
+  pagesDone: number
+  bytes: number
+  createdAt: number
+}
+
 class YomuDB extends Dexie {
   series!: EntityTable<Series, 'id'>
   chapters!: EntityTable<ChapterRow, 'id'>
   progress!: EntityTable<Progress, 'seriesId'>
   settings!: EntityTable<Setting, 'key'>
+  imageBytes!: EntityTable<ImageBytes, 'key'>
+  downloads!: EntityTable<Download, 'chapterId'>
 
   constructor() {
     super('yomu')
@@ -63,6 +92,15 @@ class YomuDB extends Dexie {
       chapters: 'id, seriesId',
       progress: 'seriesId, updatedAt',
       settings: 'key',
+    })
+    // v2: offline byte cache + downloads (Phase 2).
+    this.version(2).stores({
+      series: 'id, source, type, updatedAt',
+      chapters: 'id, seriesId',
+      progress: 'seriesId, updatedAt',
+      settings: 'key',
+      imageBytes: 'key, chapterId, tier, lastAccess',
+      downloads: 'chapterId, seriesId, status',
     })
   }
 }

@@ -31,4 +31,20 @@ Download a chapter → read it offline (simulated: serve from byte cache, networ
 - Offline test is simulated headlessly (block network, read from cache); true airplane-mode is a device check (Phase 6).
 
 ## RESULTS
-_(appended per hard rule)_
+
+### Phase 2 — COMPLETE ✅ (2026-09-16)
+**Built:**
+- DB v2: `imageBytes` (key/chapterId/tier/lastAccess) + `downloads` tables + migration.
+- `imageCache.ts`: get-or-fetch bytes via proxy, tier-aware (`cache`/`download`), upgrade-only tier, `usage()`. Byte cache = both offline + proxy-rate protection.
+- `eviction.ts`: LRU over `cache` tier by lastAccess to a budget; `evictIfPressured` via Storage API. **Never** evicts `download`.
+- `downloads.ts`: single/range/series/auto-next-N; permanent tier; `navigator.storage.persist()` on first download; idempotent; progress rows.
+- `wifiGuard.ts`: NetInfo-based gate, allow-on-unknown, user override.
+- `resume.ts`: leading+trailing throttle + persist/restore; wired into ReaderShell (restore last chapter on open, save on change, flush on visibilitychange/pagehide).
+**Verification (self-checks, all green):**
+- offline: tier upgrade-only, eviction LRU keeps downloads, fetchAndCache dedups (no re-hit to proxy).
+- downloads: permanent-tier storage + progress, nextN skips downloaded & keeps order.
+- resume: throttle leading/trailing/interval + persist+restore. **(Caught a real leading-edge bug — fixed: init `last=-Infinity`.)**
+- build clean.
+**Deviations:** byte-cache-in-*reader* render path is wired via the download flow (downloaded pages populate the cache; the reader resolver reads cache for downloaded chapters). Full cache-preferring objectURL resolution for *online* reads is a small follow-up (documented) — offline reading of downloaded chapters works now.
+**Gaps carried:** true airplane-mode + persistent-storage-permission UX is a device check (Phase 6); storage-management UI is minimal (surfaced in settings in Phase 5).
+**Caveat:** offline verified headlessly (network-blocked cache reads via fake-indexeddb + stubbed fetch), not real airplane mode.

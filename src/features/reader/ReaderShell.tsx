@@ -1,8 +1,9 @@
 // Reader shell (FR-6): loads a series' resolved chapters, picks reading mode by content type,
 // hosts the active renderer, controls, version switch, brightness overlay, and reader memory.
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useChapterFeed } from '../../lib/mangadex/queries'
+import { makeProgressSaver, restoreProgress } from './resume'
 import {
   resolveChapters,
   inferPreferredGroup,
@@ -36,6 +37,14 @@ export default function ReaderShell({ seriesId, seriesType, onClose }: Props) {
 
   const mode = mem.mode ?? defaultMode(seriesType)
 
+  // Resume persistence (FR-18): restore last chapter on open, save throttled + on close.
+  const saver = useRef(makeProgressSaver(seriesId))
+  const [restored, setRestored] = useState(false)
+  useEffect(() => {
+    saver.current = makeProgressSaver(seriesId)
+    setRestored(false)
+  }, [seriesId])
+
   const resolved: ResolvedChapter[] = useMemo(() => {
     if (!feed.data) return []
     const raw: RawChapter[] = feed.data.data.map((c) => ({
@@ -56,6 +65,43 @@ export default function ReaderShell({ seriesId, seriesType, onClose }: Props) {
   }))
 
   const currentResolved = resolved[chapterIndex]
+
+  // Restore last-read chapter once chapters are available.
+  useEffect(() => {
+    if (restored || chapterRefs.length === 0) return
+    let alive = true
+    restoreProgress(seriesId).then((p) => {
+      if (!alive || !p) {
+        setRestored(true)
+        return
+      }
+      const idx = chapterRefs.findIndex((c) => c.id === p.lastChapterId)
+      if (idx >= 0) setChapterIndex(idx)
+      setRestored(true)
+    })
+    return () => {
+      alive = false
+    }
+  }, [restored, chapterRefs, seriesId])
+
+  // Save chapter-level progress on change + flush on background/close.
+  useEffect(() => {
+    const ref = chapterRefs[chapterIndex]
+    if (!ref) return
+    const pos =
+      mode === 'paged'
+        ? ({ kind: 'paged', pageIndex: 0 } as const)
+        : ({ kind: 'scroll', imageIndex: 0, offsetPct: 0 } as const)
+    saver.current(ref.id, mode, pos)
+    const flush = () => saver.current.flush()
+    document.addEventListener('visibilitychange', flush)
+    window.addEventListener('pagehide', flush)
+    return () => {
+      flush()
+      document.removeEventListener('visibilitychange', flush)
+      window.removeEventListener('pagehide', flush)
+    }
+  }, [chapterIndex, mode, chapterRefs])
 
   if (feed.isLoading) return <Centered>Loading chapters…</Centered>
   if (feed.isError) return <Centered>MangaDex unreachable — retry.</Centered>

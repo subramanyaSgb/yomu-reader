@@ -41,7 +41,7 @@ Scope: FR-6, FR-7, FR-8, FR-9, FR-11, FR-2, FR-3.
 
 ---
 
-## Phase 2 — Offline & storage
+## Phase 2 — Offline & storage ✅ COMPLETE (2026-09-16)
 
 **Goal:** reliable offline reading.
 Scope: FR-14, FR-15, FR-16, FR-17, FR-18.
