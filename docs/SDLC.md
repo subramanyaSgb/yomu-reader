@@ -86,7 +86,7 @@ Scope: FR-19, FR-20, FR-29, FR-30.
 
 ---
 
-## Phase 5 — Stats, comfort, goals, polish
+## Phase 5 — Stats, comfort, goals, polish ✅ COMPLETE (2026-09-16)
 
 **Goal:** the "premium daily-use" layer.
 Scope: FR-12, FR-13, FR-25, FR-26, FR-27, FR-28, FR-31, FR-32, FR-33, FR-34.

@@ -28,4 +28,16 @@ Stats compute correctly (self-check: streak, time, genre rollups); export→impo
 - **T9** Cover art rendering (cover_art rel → proxy) — the Phase 3 polish debt. Verify build + self-checks.
 
 ## RESULTS
-_(appended per hard rule)_
+
+### Phase 5 — COMPLETE ✅ (2026-09-16)
+**Built:**
+- `statsLogic` (pure): record read, totals, **streak (gap-reset, today-required)**, genre breakdown, goal progress. `statsRepo` (rollups under one settings key). `StatsScreen` (chapters/streak/hours + genre bars) in Profile.
+- `backup` (pure): serialize/parse library+progress+settings+stats with version guard.
+- `settings/theme` (Dark/Light/Sepia via CSS vars + persisted) + night `warmthForHour`; theme picker in Profile; applied on app load.
+- `useWakeLock` (FR-33, Android-supported, no-op elsewhere); wired into reader.
+- Auto-scroll (FR-12) in VerticalScrollRenderer (speed-adjustable interval).
+- Chapter-read tracking wired into ReaderShell (on chapter change).
+**Verification:** stats/backup self-check green (**caught + fixed a timezone streak bug** — replaced UTC round-trip with a tz-safe day-walk); all **13 project self-checks green**; build clean.
+**Deviations:** stats rollups stored under a settings key (not a dedicated indexed table) — simpler for one user (ponytail); genre tally is empty until series-detail enriches genres (Phase 6); data-saver `q=low` + CSS sharpen wired at the proxy/URL layer, reader toggle surfaced in Phase 6 controls; cover art still placeholder (rolled to Phase 6 polish).
+**Gaps carried:** cover art, genre enrichment, immersive/orientation lock (device — Phase 6), reading-time precision.
+**Caveat:** comfort features (wake lock, auto-scroll, themes) are build/logic-verified; on-device behavior validated in Phase 6.
