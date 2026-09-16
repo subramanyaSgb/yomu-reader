@@ -8,6 +8,35 @@ A **personal-use** manga/manhwa/manhua reader, built as an installable **PWA** f
 
 Named "Yomu" (Japanese: 読む, "to read").
 
+## CURRENT STATE (2026-09-16) — read this to resume
+
+**Status:** All 7 phases (0–7) built, verified headlessly (15 self-checks + live proxy E2E), merged to `main`. v1 = phases 0–6; v2 experimental behind flags = phase 7.
+
+**Live URLs:**
+- App (Vercel): **https://yomu-reader.vercel.app** (clean alias)
+- Image proxy (Cloudflare Worker, LIVE): `https://yomu-image-proxy.subramanya-bellary.workers.dev`
+- GitHub: https://github.com/subramanyaSgb/yomu-reader (private)
+
+**Accounts:** GitHub `subramanyaSgb`; Cloudflare `subramanya.bellary@deeviasoftware.com` (worker deployed, workers.dev subdomain `subramanya-bellary`, Production+Preview routes ON); Vercel `subramanyasgb` (project `yomu-reader`, GitHub-connected).
+
+**Env vars (Vercel Production+Preview):** `VITE_IMAGE_PROXY` = the worker URL. Firebase vars NOT set (app runs local-only until owner does docs/FIREBASE-SETUP.md).
+
+### KNOWN GOTCHAS (do not re-learn the hard way)
+1. **MangaDex CORS preflight = 403.** Never send custom headers (User-Agent, Accept) on browser fetches to `api.mangadex.org` — any custom header forces an OPTIONS preflight that MangaDex's anti-abuse layer 403s, silently blocking ALL calls → empty search/home. Bare `fetch(url)` (simple request) works. Fixed in `src/lib/mangadex/client.ts` (commit 601d378). The rate limiter is our good-citizen mechanism instead.
+2. **Vercel deploys from GitHub automatically.** The repo is Git-connected → every push to `main` auto-deploys production. Do NOT run `vercel deploy` via CLI to ship a code change — just `git push origin main`. CLI deploys during this session landed in `UNKNOWN`/stuck state and wasted time; Git-push is the reliable path. `vercel.json` pins buildCommand=`npm run build`, outputDirectory=`dist`, framework=`vite`.
+3. **15-min image URLs / cache bytes not URLs** — see MangaDex constraints below.
+4. **tsx self-checks:** `import.meta.env` is undefined under tsx — always guard with `?? {}` (see flags.ts, imageUrl.ts, upscale.ts) or the module throws at import.
+5. **Windows line endings:** git shows CRLF warnings on commit — harmless.
+
+### PENDING (owner actions, documented — can't be done headlessly)
+- **Verify latest Vercel deploy succeeded** (the CORS fix). If deploys show Error, check dashboard build logs → likely Node version or subdir (worker/functions) build interference.
+- Device pass: `docs/DEVICE-CHECKLIST.md` (install, offline, curl 60fps, gestures).
+- Optional sync/push: `docs/FIREBASE-SETUP.md`.
+- Optional v2: supply ONNX bubble/upscale model URLs + flip `VITE_FEAT_*` flags.
+
+### NEW WORK REQUESTED (not yet started)
+- **Pixel-perfect UI reskin** per `Yomu manga reader app UI/design_handoff_yomu_reader/PROMPT.md` + its `README.md` (authoritative spec) + interactive prototype `design/Yomu App v2.dc.html`. Implement 1:1: 3 themes as CSS vars, Outfit font, Lucide icons, 390px mobile, exact tokens/motion. Do NOT port `design/support.js`. Start by proposing component/route breakdown + token file, wait for OK, then build screen-by-screen. This is a reskin of the already-built feature layer — map new UI onto existing hooks/logic (reader engine, offline, sync, stats all done).
+
 ## HARD RULE — Document every phase (non-negotiable)
 
 Development MUST be fully, professionally documented. This is a hard rule, not a preference.
