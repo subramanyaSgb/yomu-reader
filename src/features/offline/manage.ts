@@ -28,6 +28,11 @@ export async function clearSeriesDownloads(seriesId: string): Promise<void> {
   await db.downloads.where('seriesId').equals(seriesId).delete()
 }
 
+export async function clearChapterDownload(chapterId: string): Promise<void> {
+  await db.imageBytes.where('chapterId').equals(chapterId).delete()
+  await db.downloads.delete(chapterId)
+}
+
 export async function clearAllDownloads(): Promise<void> {
   await db.imageBytes.clear()
   await db.downloads.clear()

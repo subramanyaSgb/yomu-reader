@@ -8,11 +8,12 @@ import { restoreProgress } from '../reader/resume'
 import { saveSeriesMeta } from '../shelf/seriesMeta'
 import { kkPages, buildKakalotImageUrl } from '../../lib/kakalot/client'
 import { downloadChapter, isDownloaded } from '../offline/downloads'
-import { downloadedChapterIds, clearSeriesDownloads } from '../offline/manage'
+import { downloadedChapterIds, clearSeriesDownloads, clearChapterDownload } from '../offline/manage'
 import { migratedFlagKey } from '../shelf/idMigration'
 import { getSetting } from '../../lib/db/repo'
 import { db } from '../../lib/db/schema'
-import { getSeriesMeta } from '../shelf/seriesMeta'
+import { getSeriesMeta, type SeriesMeta } from '../shelf/seriesMeta'
+import { getBookmarks, removeBookmark, type Bookmark } from '../bookmarks/bookmarks'
 import {
   useManga, useChapterFeed, mangaEnTitle, mangaCoverUrl,
   type MDChapter,
@@ -40,7 +41,7 @@ interface Props {
   id: string
   source: SeriesSource
   onBack: () => void
-  onRead: (readId?: string, readSource?: SeriesSource, startChapterId?: string) => void
+  onRead: (readId?: string, readSource?: SeriesSource, startChapterId?: string, startPosition?: Bookmark['position']) => void
 }
 
 const STATUS_LABEL: Record<number, string> = { 1: 'ongoing', 2: 'completed', 3: 'cancelled', 4: 'hiatus' }
@@ -117,15 +118,9 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
   const [dlSheet, setDlSheet] = useState(false)
   const [dl, setDl] = useState<{ done: number; total: number; running: boolean } | null>(null)
 
-  async function startDownload(count: number) {
-    const asc = kkFeed.data?.chapters ?? []
-    if (!asc.length || !readSeriesId) return
-    const contIdx = lastReadChapterId ? asc.findIndex(c => c.id === lastReadChapterId) : -1
-    const targets: typeof asc = []
-    for (let i = contIdx + 1; i < asc.length && targets.length < count; i++) {
-      if (!(await isDownloaded(asc[i].id))) targets.push(asc[i])
-    }
-    setDl({ done: 0, total: targets.length, running: true })
+  async function runDownload(targets: Array<{ id: string }>) {
+    if (!readSeriesId) return
+    setDl({ done: 0, total: targets.length, running: targets.length > 0 })
     for (let i = 0; i < targets.length; i++) {
       try {
         const pages = await kkPages(targets[i].id)
@@ -134,6 +129,47 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
       } catch { /* keep going — partial downloads are fine */ }
       setDl({ done: i + 1, total: targets.length, running: i + 1 < targets.length })
     }
+  }
+
+  /** Next N chapters after the continue point. */
+  async function startDownload(count: number) {
+    const asc = kkFeed.data?.chapters ?? []
+    if (!asc.length) return
+    const contIdx = lastReadChapterId ? asc.findIndex(c => c.id === lastReadChapterId) : -1
+    const targets: typeof asc = []
+    for (let i = contIdx + 1; i < asc.length && targets.length < count; i++) {
+      if (!(await isDownloaded(asc[i].id))) targets.push(asc[i])
+    }
+    await runDownload(targets)
+  }
+
+  /** Everything, or everything unread, that isn't already downloaded. */
+  async function startDownloadAll(unreadOnly: boolean) {
+    const asc = kkFeed.data?.chapters ?? []
+    const targets: typeof asc = []
+    for (const c of asc) {
+      if (unreadOnly && readSet.has(c.id)) continue
+      if (!(await isDownloaded(c.id))) targets.push(c)
+    }
+    await runDownload(targets)
+  }
+
+  // Per-chapter download/remove from the list rows.
+  const [chapterBusy, setChapterBusy] = useState<Set<string>>(new Set())
+  async function toggleChapterDownload(chId: string) {
+    if (chapterBusy.has(chId) || !readSeriesId) return
+    setChapterBusy(s => new Set(s).add(chId))
+    try {
+      if (dlSet.has(chId)) {
+        await clearChapterDownload(chId)
+        setDlSet(s => { const n = new Set(s); n.delete(chId); return n })
+      } else {
+        const pages = await kkPages(chId)
+        await downloadChapter({ chapterId: chId, seriesId: readSeriesId, proxyUrls: pages.map(p => buildKakalotImageUrl(p.src, chId)) }, 'single')
+        setDlSet(s => new Set(s).add(chId))
+      }
+    } catch { /* leave state unchanged; user can retry */ }
+    setChapterBusy(s => { const n = new Set(s); n.delete(chId); return n })
   }
   const [lastReadChapterId, setLastReadChapterId] = useState<string | null>(null)
   useEffect(() => {
@@ -175,6 +211,23 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
     downloadedChapterIds(readSeriesId).then(s => { if (alive) setDlSet(s) })
     return () => { alive = false }
   }, [readSeriesId, dl])
+
+  // Bookmarks + per-series preferences
+  const [marks, setMarks] = useState<Bookmark[]>([])
+  const [prefs, setPrefs] = useState<SeriesMeta>({})
+  useEffect(() => {
+    if (!readSeriesId) return
+    let alive = true
+    void getBookmarks(readSeriesId).then(b => { if (alive) setMarks([...b].reverse()) })
+    void getSeriesMeta(readSeriesId).then(m => { if (alive) setPrefs(m ?? {}) })
+    return () => { alive = false }
+  }, [readSeriesId])
+  function togglePref(k: 'notify' | 'autoDl') {
+    if (!readSeriesId) return
+    const next = { ...prefs, [k]: prefs[k] === false ? true : false }
+    setPrefs(next)
+    void saveSeriesMeta(readSeriesId, { [k]: next[k] })
+  }
 
   // Jump-to-chapter input
   const [jump, setJump] = useState('')
@@ -295,6 +348,47 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
           </div>
         )}
 
+        {/* Per-series preferences (push + auto-download apply to the Reading shelf) */}
+        {showKkChapters && (
+          <div style={{ display: 'flex', gap: 8, padding: '0 18px', marginBottom: 14 }}>
+            {([['notify', 'Notifications'], ['autoDl', 'Auto-download']] as const).map(([k, label]) => {
+              const on = prefs[k] !== false
+              return (
+                <button key={k} onClick={() => togglePref(k)} style={{
+                  height: 32, padding: '0 12px', borderRadius: 9, border: '1px solid var(--y-line)',
+                  background: on ? 'var(--y-pa)' : 'var(--y-surf)', color: on ? 'var(--y-plt)' : 'var(--y-dim)',
+                  fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                }}>{on ? '✓ ' : ''}{label}</button>
+              )
+            })}
+          </div>
+        )}
+
+        {/* Bookmarks */}
+        {marks.length > 0 && (
+          <div style={{ margin: '0 18px 14px', borderRadius: 12, border: '1px solid var(--y-line)', overflow: 'hidden' }}>
+            <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--y-dim)', textTransform: 'uppercase', letterSpacing: '0.06em', padding: '10px 14px 4px' }}>Bookmarks</div>
+            {marks.map(b => (
+              <div key={b.at} style={{ display: 'flex', alignItems: 'center' }}>
+                <button onClick={() => onRead(kkMangaId ?? undefined, 'kakalot', b.chapterId, b.position)} style={{
+                  flex: 1, height: 44, display: 'flex', alignItems: 'center', gap: 8, padding: '0 14px',
+                  background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left',
+                }}>
+                  <span style={{ fontSize: 13 }}>🔖</span>
+                  <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--y-hi)' }}>Chapter {b.number ?? '?'}</span>
+                  <span style={{ fontSize: 10.5, fontWeight: 500, color: 'var(--y-dim)' }}>
+                    {b.position.kind === 'paged' ? `page ${b.position.pageIndex + 1}` : `${Math.round(b.position.offsetPct * 100)}% into panel ${b.position.imageIndex + 1}`}
+                    {' · '}{new Date(b.at).toLocaleDateString()}
+                  </span>
+                </button>
+                <button onClick={() => { void removeBookmark(b.seriesId, b.at); setMarks(m => m.filter(x => x.at !== b.at)) }}
+                  aria-label="Remove bookmark"
+                  style={{ width: 44, height: 44, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--y-dim)', fontSize: 15 }}>×</button>
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Licensed banner */}
         {isLicensed && (
           <div style={{ margin: '0 18px 16px', padding: '10px 14px', borderRadius: 12, border: '1.5px dashed var(--y-line)', display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -408,12 +502,20 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
                   <div style={{ fontSize: 11, fontWeight: 500, color: 'var(--y-dim)' }}>{ch.title ?? 'WeebCentral'}</div>
                 </div>
               </button>
+              {/* per-chapter download / remove */}
+              <button
+                onClick={() => void toggleChapterDownload(ch.id)}
+                aria-label={dlSet.has(ch.id) ? 'Remove download' : 'Download chapter'} style={{
+                width: 44, minHeight: 60, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: 'none', border: 'none', cursor: 'pointer',
+                color: dlSet.has(ch.id) ? 'var(--y-ok)' : 'var(--y-line)', fontSize: 15,
+              }}>{chapterBusy.has(ch.id) ? '…' : dlSet.has(ch.id) ? '⬇✓' : '⬇'}</button>
               {/* read/unread toggle: read → unmark directly; unread → sheet offers
                   "just this one" or "everything up to here" (bulk mark). */}
               <button
                 onClick={() => { if (isRead) { void toggleRead(ch.id) } else { setBulkTarget({ id: ch.id, number: ch.number }) } }}
                 aria-label={isRead ? 'Mark unread' : 'Mark read'} style={{
-                width: 52, minHeight: 60, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                width: 44, minHeight: 60, display: 'flex', alignItems: 'center', justifyContent: 'center',
                 background: 'none', border: 'none', cursor: 'pointer',
                 color: isRead ? 'var(--y-ok)' : 'var(--y-line)', fontSize: 17, fontWeight: 800,
               }}>✓</button>
@@ -487,6 +589,18 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
                   Next {n} chapters
                 </button>
               ))}
+              {dl == null && (
+                <>
+                  <button onClick={() => void startDownloadAll(true)}
+                    style={{ width: '100%', height: 48, borderRadius: 12, border: '1px solid var(--y-line)', background: 'var(--y-surf2)', color: 'var(--y-hi)', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', marginBottom: 10 }}>
+                    All unread ({kkChapters.filter(c => !readSet.has(c.id) && !dlSet.has(c.id)).length} chapters)
+                  </button>
+                  <button onClick={() => void startDownloadAll(false)}
+                    style={{ width: '100%', height: 48, borderRadius: 12, border: '1px solid var(--y-line)', background: 'var(--y-surf2)', color: 'var(--y-hi)', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', marginBottom: 10 }}>
+                    All chapters ({kkChapters.filter(c => !dlSet.has(c.id)).length})
+                  </button>
+                </>
+              )}
               {dl != null && (
                 <div style={{ marginBottom: 14 }}>
                   <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--y-hi)', marginBottom: 8 }}>

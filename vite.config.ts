@@ -23,6 +23,8 @@ export default defineConfig({
     VitePWA({
       registerType: 'prompt',
       workbox: {
+        // New-chapter push handlers live in a static script pulled into the SW.
+        importScripts: ['push-sw.js'],
         // Don't precache the big lazy chunks (pdf.worker ~2.2MB, firebase ~540KB) —
         // they'd download on every install/SW update even if never used. Runtime
         // caching below picks them up on first real use (still offline afterwards).

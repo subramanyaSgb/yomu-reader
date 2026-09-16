@@ -2,7 +2,7 @@
 // three grids over the curated catalog (src/catalog.ts) — no external discovery.
 
 import { useEffect, useRef, useState } from 'react'
-import { Search, X, CalendarClock, Settings } from 'lucide-react'
+import { Search, X, CalendarClock, Settings, History } from 'lucide-react'
 import { useQuery, useQueries } from '@tanstack/react-query'
 import { CATALOG, type CatalogEntry } from '../../catalog'
 import { kkCoverUrl, kkChapters, kkHealth } from '../../lib/kakalot/client'
@@ -12,12 +12,13 @@ import { getSeriesMeta } from './seriesMeta'
 import { getProgress } from '../../lib/db/repo'
 import { exportBackup, importBackup } from '../backup/backup'
 import { downloadsSummary, clearAllDownloads, formatBytes } from '../offline/manage'
+import { isPushEnabled, enablePush, disablePush, syncPushState } from '../push/push'
 import { downloadChapter, isDownloaded } from '../offline/downloads'
 import { kkPages as fetchKkPages, buildKakalotImageUrl } from '../../lib/kakalot/client'
 import { useShelves, shelfOf, type Shelf } from './shelf'
 import type { SeriesSource } from '../../App'
 
-interface CardInfo { pct?: number; lastNumber?: string | null; at?: number }
+interface CardInfo { pct?: number; lastNumber?: string | null; at?: number; autoDl?: boolean }
 
 // Session guard so auto-download runs once per series per app session.
 const autoDownloaded = new Set<string>()
@@ -77,10 +78,12 @@ export default function ShelfScreen({
   shelf,
   onOpen,
   onUpcoming,
+  onHistory,
 }: {
   shelf: Shelf
   onOpen: (id: string, source: SeriesSource) => void
   onUpcoming?: () => void
+  onHistory?: () => void
 }) {
   const { shelves, loaded } = useShelves()
   const [term, setTerm] = useState('')
@@ -126,6 +129,7 @@ export default function ShelfScreen({
       for (let i = 0; i < readingIds.length; i++) {
         const id = readingIds[i]
         if (!hasNewMap[id] || autoDownloaded.has(id)) continue
+        if (info[id]?.autoDl === false) continue // per-series opt-out
         autoDownloaded.add(id)
         const chs = newChecks[i]?.data?.chapters ?? []
         const last = info[id]?.lastNumber
@@ -143,11 +147,21 @@ export default function ShelfScreen({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [anyNew, shelf])
 
-  // Storage summary for the backup sheet
+  // Storage summary + push status for the settings sheet
   const [storage, setStorage] = useState<{ chapters: number; bytes: number } | null>(null)
+  const [pushOn, setPushOn] = useState<boolean | null>(null)
+  const [pushMsg, setPushMsg] = useState('')
   useEffect(() => {
-    if (backupSheet) downloadsSummary().then(setStorage)
+    if (backupSheet) {
+      downloadsSummary().then(setStorage)
+      isPushEnabled().then(setPushOn)
+    }
   }, [backupSheet])
+
+  // Keep the push server's view of the reading list fresh (throttled internally).
+  useEffect(() => {
+    if (loaded) void syncPushState()
+  }, [loaded, shelves])
 
   // Local-only card info: read %, last chapter, recency (no network).
   useEffect(() => {
@@ -161,6 +175,7 @@ export default function ShelfScreen({
           pct: meta?.total ? Math.round((reads.length / meta.total) * 100) : undefined,
           lastNumber: meta?.lastNumber ?? undefined,
           at: prog?.updatedAt,
+          autoDl: meta?.autoDl,
         }
       }))
       if (alive) setInfo(out)
@@ -191,7 +206,12 @@ export default function ShelfScreen({
               {anyNew && <span style={{ position: 'absolute', top: 9, right: 9, width: 8, height: 8, borderRadius: '50%', background: 'var(--y-a)' }} />}
             </button>
           )}
-          <button onClick={() => { setBackupSheet(true); setBackupMsg('') }} aria-label="Backup" style={{ width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--y-mid)' }}>
+          {onHistory && (
+            <button onClick={onHistory} aria-label="Reading history" style={{ width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--y-mid)' }}>
+              <History size={20} />
+            </button>
+          )}
+          <button onClick={() => { setBackupSheet(true); setBackupMsg(''); setPushMsg('') }} aria-label="Settings" style={{ width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--y-mid)' }}>
             <Settings size={20} />
           </button>
           <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--y-dim)' }}>{entries.length} series</span>
@@ -269,8 +289,26 @@ export default function ShelfScreen({
                 }
               }} />
             {backupMsg && <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--y-ok)', marginBottom: 10 }}>{backupMsg}</div>}
-            {/* Storage */}
+            {/* Notifications */}
             <div style={{ borderTop: '1px solid var(--y-line)', paddingTop: 14, marginTop: 4, marginBottom: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--y-hi)' }}>New-chapter notifications</span>
+              <button
+                disabled={pushOn === null}
+                onClick={async () => {
+                  if (pushOn) { await disablePush(); setPushOn(false); setPushMsg('Notifications off.') }
+                  else {
+                    const r = await enablePush()
+                    if (r.ok) { setPushOn(true); setPushMsg('Enabled — checks run every 2 hours.') }
+                    else setPushMsg(r.reason ?? 'Could not enable')
+                  }
+                }}
+                style={{ height: 34, padding: '0 14px', borderRadius: 9, border: '1px solid var(--y-line)', background: pushOn ? 'var(--y-pa)' : 'none', color: pushOn ? 'var(--y-plt)' : 'var(--y-mid)', fontSize: 11.5, fontWeight: 700, cursor: 'pointer' }}>
+                {pushOn === null ? '…' : pushOn ? 'On' : 'Off'}
+              </button>
+            </div>
+            {pushMsg && <div style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--y-dim)', marginBottom: 10 }}>{pushMsg}</div>}
+            {/* Storage */}
+            <div style={{ borderTop: '1px solid var(--y-line)', paddingTop: 14, marginBottom: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--y-hi)' }}>
                 Offline storage{storage ? ` — ${storage.chapters} chapters · ${formatBytes(storage.bytes)}` : '…'}
               </span>

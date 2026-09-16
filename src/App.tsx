@@ -13,7 +13,9 @@ import { hasSeenOnboarding } from './features/onboarding/Onboarding'
 import { lazy, Suspense } from 'react'
 import ShelfScreen from './features/shelf/ShelfScreen'
 import UpcomingScreen from './features/shelf/UpcomingScreen'
+import HistoryScreen from './features/history/HistoryScreen'
 import SeriesDetail from './features/discovery/SeriesDetail'
+import type { Bookmark } from './features/bookmarks/bookmarks'
 // The reader (renderers, zoom math, resume, HUD) is the heaviest screen and isn't
 // needed to browse shelves — split it out of the startup bundle.
 const ReaderShell = lazy(() => import('./features/reader/ReaderShell'))
@@ -26,8 +28,9 @@ export type SeriesSource = 'mangadex' | 'kakalot' | 'comick'
 
 type OverlayScreen =
   | { kind: 'detail'; id: string; source: SeriesSource }
-  | { kind: 'reader'; id: string; source: SeriesSource; type: SeriesType; startChapterId?: string }
+  | { kind: 'reader'; id: string; source: SeriesSource; type: SeriesType; startChapterId?: string; startPosition?: Bookmark['position'] }
   | { kind: 'upcoming' }
+  | { kind: 'history' }
 
 export default function App() {
   const [tab, setTab] = useState<Tab>('reading')
@@ -87,9 +90,9 @@ export default function App() {
     pushOverlay({ kind: 'detail', id, source })
   }
 
-  function openReader(id: string, source: SeriesSource, type: SeriesType = 'manga', startChapterId?: string) {
+  function openReader(id: string, source: SeriesSource, type: SeriesType = 'manga', startChapterId?: string, startPosition?: Bookmark['position']) {
     void markReadingIfWanted(id) // Want to Read → Reading on first open
-    pushOverlay({ kind: 'reader', id, source, type, startChapterId })
+    pushOverlay({ kind: 'reader', id, source, type, startChapterId, startPosition })
   }
 
   function switchTab(t: Tab) {
@@ -118,6 +121,7 @@ export default function App() {
               seriesSource={overlay.source}
               seriesType={overlay.type}
               startChapterId={overlay.startChapterId}
+              startPosition={overlay.startPosition}
               onClose={goBack}
             />
           </Suspense>
@@ -138,14 +142,24 @@ export default function App() {
               id={overlay.id}
               source={overlay.source}
               onBack={goBack}
-              onRead={(readId, readSource, startChapterId) =>
-                openReader(readId ?? overlay.id, readSource ?? overlay.source, 'manga', startChapterId)}
+              onRead={(readId, readSource, startChapterId, startPosition) =>
+                openReader(readId ?? overlay.id, readSource ?? overlay.source, 'manga', startChapterId, startPosition)}
             />
           )}
           {overlay?.kind === 'upcoming' && (
             <UpcomingScreen onBack={goBack} onOpen={openSeries} />
           )}
-          {!overlay && <ShelfScreen shelf={tab} onOpen={openSeries} onUpcoming={() => pushOverlay({ kind: 'upcoming' })} />}
+          {overlay?.kind === 'history' && (
+            <HistoryScreen onBack={goBack} onOpen={openSeries} />
+          )}
+          {!overlay && (
+            <ShelfScreen
+              shelf={tab}
+              onOpen={openSeries}
+              onUpcoming={() => pushOverlay({ kind: 'upcoming' })}
+              onHistory={() => pushOverlay({ kind: 'history' })}
+            />
+          )}
         </main>
 
         {!overlay && (

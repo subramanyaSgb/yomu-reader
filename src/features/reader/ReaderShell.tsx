@@ -11,6 +11,9 @@ import { useKakalotChapters, useKakalotSearch } from '../../lib/kakalot/queries'
 import { makeProgressSaver, restoreProgress } from './resume'
 import { markChapterRead } from './readTracking'
 import { saveSeriesMeta, getSeriesMeta } from '../shelf/seriesMeta'
+import { appendHistory } from '../history/history'
+import { addBookmark, type Bookmark } from '../bookmarks/bookmarks'
+import { CATALOG } from '../../catalog'
 import type { ScrollAnchor } from './scrollAnchor'
 import { trackChapterRead } from '../stats/statsRepo'
 import { useWakeLock } from '../settings/useWakeLock'
@@ -34,6 +37,7 @@ interface Props {
   seriesSource: SeriesSource
   seriesType: SeriesType
   startChapterId?: string
+  startPosition?: Bookmark['position'] // exact spot when opened from a bookmark
   onClose?: () => void
 }
 
@@ -41,7 +45,7 @@ function defaultMode(type: SeriesType): ReadMode {
   return type === 'manga' ? 'paged' : 'scroll'
 }
 
-export default function ReaderShell({ seriesId, seriesSource, seriesType, startChapterId, onClose }: Props) {
+export default function ReaderShell({ seriesId, seriesSource, seriesType, startChapterId, startPosition, onClose }: Props) {
   const { mem, update } = useReaderMemory(seriesId)
   const [chapterIndex, setChapterIndex] = useState(0)
   const [sheet, setSheet] = useState<'controls' | 'versions' | 'chapters' | null>(null)
@@ -173,11 +177,13 @@ export default function ReaderShell({ seriesId, seriesSource, seriesType, startC
 
   useEffect(() => {
     if (restored || chapterRefs.length === 0) return
-    // Explicit start chapter (user tapped a specific chapter) beats saved progress.
+    // Explicit start chapter (user tapped a specific chapter/bookmark) beats saved progress.
     if (startChapterId) {
       const idx = chapterRefs.findIndex((c) => c.id === startChapterId)
       if (idx >= 0) {
         setChapterIndex(idx)
+        if (startPosition?.kind === 'scroll') setInitialAnchor({ imageIndex: startPosition.imageIndex, offsetPct: startPosition.offsetPct })
+        if (startPosition?.kind === 'paged') setInitialPage(startPosition.pageIndex)
         setRestored(true)
         return
       }
@@ -220,15 +226,28 @@ export default function ReaderShell({ seriesId, seriesSource, seriesType, startC
     }
   }, [])
 
-  // Opening a chapter marks it read (comix-style checkmarks) and records the series
-  // meta the shelf cards display (total chapters + last chapter number).
+  // Opening a chapter marks it read (comix-style checkmarks), records the series
+  // meta the shelf cards display, and appends to the reading history.
   useEffect(() => {
     if (!restored) return
     const ref = chapterRefsRef.current[chapterIndex]
     if (!ref) return
     void markChapterRead(seriesId, ref.id)
     void saveSeriesMeta(seriesId, { total: chapterRefsRef.current.length, lastNumber: ref.number })
+    const title = CATALOG.find(e => e.id === seriesId)?.title ?? seriesId
+    void appendHistory({ seriesId, title, chapterId: ref.id, number: ref.number })
   }, [chapterIndex, restored, seriesId])
+
+  // Latest exact position, for bookmarking the current spot.
+  const lastPosRef = useRef<Bookmark['position']>({ kind: 'scroll', imageIndex: 0, offsetPct: 0 })
+  const [bookmarkFlash, setBookmarkFlash] = useState(false)
+  function saveBookmarkHere() {
+    const ref = chapterRefsRef.current[chapterIndex]
+    if (!ref) return
+    void addBookmark({ seriesId, chapterId: ref.id, number: ref.number, position: lastPosRef.current })
+    setBookmarkFlash(true)
+    window.setTimeout(() => setBookmarkFlash(false), 1500)
+  }
 
   // Baseline save when NAVIGATING to a different chapter (start of it). Never on the
   // first (restored) chapter — that would overwrite the saved exact position with 0.
@@ -284,6 +303,9 @@ export default function ReaderShell({ seriesId, seriesSource, seriesType, startC
               WeebCentral
             </span>
           )}
+          <button onClick={saveBookmarkHere} aria-label="Bookmark this spot" style={{ height: 36, padding: '0 12px', borderRadius: 20, background: bookmarkFlash ? 'var(--y-p)' : 'rgba(255,255,255,0.1)', border: 'none', cursor: 'pointer', color: bookmarkFlash ? 'var(--y-onp)' : '#fff', backdropFilter: 'blur(8px)', fontSize: 12, fontWeight: 700 }}>
+            {bookmarkFlash ? 'Saved ✓' : '🔖'}
+          </button>
           <button onClick={() => setSheet('chapters')} style={{ height: 36, padding: '0 12px', borderRadius: 20, background: 'rgba(255,255,255,0.1)', border: 'none', cursor: 'pointer', color: '#fff', backdropFilter: 'blur(8px)', fontSize: 12, fontWeight: 700 }}>
             Ch. {currentRef?.number ?? '?'} ▾
           </button>
@@ -309,7 +331,8 @@ export default function ReaderShell({ seriesId, seriesSource, seriesType, startC
           onProgressChange={setProgressPct}
           onAnchorChange={(a) => {
             const ref = chapterRefsRef.current[chapterIndex]
-            if (ref) saver.current(ref.id, mode, { kind: 'scroll', imageIndex: a.imageIndex, offsetPct: a.offsetPct })
+            lastPosRef.current = { kind: 'scroll', imageIndex: a.imageIndex, offsetPct: a.offsetPct }
+            if (ref) saver.current(ref.id, mode, lastPosRef.current)
           }}
           onTap={() => setHudVisible(v => !v)}
           autoScroll={autoScrollOn}
@@ -327,7 +350,8 @@ export default function ReaderShell({ seriesId, seriesSource, seriesType, startC
           initialPage={initialPage}
           onPageChange={(p) => {
             const ref = chapterRefsRef.current[chapterIndex]
-            if (ref) saver.current(ref.id, mode, { kind: 'paged', pageIndex: p })
+            lastPosRef.current = { kind: 'paged', pageIndex: p }
+            if (ref) saver.current(ref.id, mode, lastPosRef.current)
           }}
         />
       )}

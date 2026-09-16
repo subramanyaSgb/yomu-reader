@@ -93,7 +93,7 @@ function isAllowedImage(host: string): boolean {
 function corsHeaders(origin: string | null): HeadersInit {
   return {
     'Access-Control-Allow-Origin': origin ?? '*',
-    'Access-Control-Allow-Methods': 'GET, OPTIONS',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type',
     Vary: 'Origin',
   }
@@ -293,10 +293,160 @@ async function proxyKakalotImage(imageUrl: string, referer: string, origin: stri
   return new Response(upstream.body, { status: 200, headers })
 }
 
+// --- Push notifications (Web Push, no Firebase) ---
+// Payload-free "tickle" pushes: the SW wakes, fetches /push/pending and shows the
+// notifications. Empty-body pushes need no RFC8291 encryption — only a VAPID JWT.
+
+interface Env {
+  PUSH_KV: KVNamespace
+  VAPID_PUBLIC: string
+  VAPID_PRIVATE: string
+}
+
+interface PushSub { endpoint: string; keys?: Record<string, string> }
+interface SeriesState { id: string; title: string; lastNumber: string | null }
+
+const te = (s: string) => new TextEncoder().encode(s)
+
+function b64u(buf: ArrayBuffer | Uint8Array): string {
+  const bytes = buf instanceof Uint8Array ? buf : new Uint8Array(buf)
+  let s = ''
+  for (const b of bytes) s += String.fromCharCode(b)
+  return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+}
+
+function b64uToBytes(s: string): Uint8Array {
+  const b = atob(s.replace(/-/g, '+').replace(/_/g, '/'))
+  return Uint8Array.from(b, (c) => c.charCodeAt(0))
+}
+
+async function endpointKey(endpoint: string): Promise<string> {
+  const h = await crypto.subtle.digest('SHA-256', te(endpoint))
+  return b64u(h).slice(0, 20)
+}
+
+async function vapidJwt(aud: string, env: Env): Promise<string> {
+  const pub = b64uToBytes(env.VAPID_PUBLIC) // uncompressed point: 0x04 || x || y
+  const jwk = {
+    kty: 'EC', crv: 'P-256',
+    x: b64u(pub.slice(1, 33)), y: b64u(pub.slice(33, 65)),
+    d: env.VAPID_PRIVATE, ext: true,
+  }
+  const key = await crypto.subtle.importKey('jwk', jwk, { name: 'ECDSA', namedCurve: 'P-256' }, false, ['sign'])
+  const header = b64u(te(JSON.stringify({ typ: 'JWT', alg: 'ES256' })))
+  const payload = b64u(te(JSON.stringify({ aud, exp: Math.floor(Date.now() / 1000) + 12 * 3600, sub: 'mailto:owner@yomu-reader.app' })))
+  const sig = await crypto.subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, key, te(`${header}.${payload}`))
+  return `${header}.${payload}.${b64u(sig)}`
+}
+
+async function sendTickle(sub: PushSub, env: Env): Promise<number> {
+  const jwt = await vapidJwt(new URL(sub.endpoint).origin, env)
+  const res = await fetch(sub.endpoint, {
+    method: 'POST',
+    headers: { TTL: '86400', Authorization: `vapid t=${jwt}, k=${env.VAPID_PUBLIC}` },
+  })
+  return res.status
+}
+
+/** Latest chapter number for a series id (WC or buddy:), cheap + edge-cached. */
+async function latestChapterNumber(id: string): Promise<string | null> {
+  if (id.startsWith('buddy:')) {
+    const titleId = id.split(':')[1]
+    const list = await comizyGet(`/titles/${titleId}/chapters`)
+    const name: string | undefined = list?.data?.chapters?.[0]?.name
+    return name?.match(/(\d+(?:\.\d+)?)\s*$/)?.[1] ?? null
+  }
+  const ulid = id.split('/')[0]
+  const html = await wcFetch(`${WC}/series/${ulid}/full-chapter-list`, 3600)
+  // List is newest-first — the first label is the latest chapter.
+  return html?.match(/<span class="">([^<]*?(\d+(?:\.\d+)?))<\/span>/)?.[2] ?? null
+}
+
+async function handlePush(request: Request, env: Env, origin: string | null): Promise<Response> {
+  const url = new URL(request.url)
+
+  if (url.pathname === '/push/vapid') {
+    return json({ publicKey: env.VAPID_PUBLIC }, origin, 200, 3600)
+  }
+
+  if (request.method !== 'POST') return json({ error: 'POST required' }, origin, 405)
+  const body = await request.json().catch(() => null) as
+    | { subscription?: PushSub; endpoint?: string; series?: SeriesState[] } | null
+  if (!body) return json({ error: 'bad body' }, origin, 400)
+
+  if (url.pathname === '/push/subscribe' && body.subscription?.endpoint) {
+    const k = await endpointKey(body.subscription.endpoint)
+    await env.PUSH_KV.put(`sub:${k}`, JSON.stringify(body.subscription))
+    if (body.series) await env.PUSH_KV.put(`state:${k}`, JSON.stringify(body.series))
+    return json({ ok: true }, origin)
+  }
+  if (url.pathname === '/push/state' && body.endpoint && body.series) {
+    const k = await endpointKey(body.endpoint)
+    await env.PUSH_KV.put(`state:${k}`, JSON.stringify(body.series))
+    return json({ ok: true }, origin)
+  }
+  if (url.pathname === '/push/unsubscribe' && body.endpoint) {
+    const k = await endpointKey(body.endpoint)
+    await Promise.all(['sub', 'state', 'notified', 'pending'].map(p => env.PUSH_KV.delete(`${p}:${k}`)))
+    return json({ ok: true }, origin)
+  }
+  if (url.pathname === '/push/pending' && body.endpoint) {
+    const k = await endpointKey(body.endpoint)
+    const pending = await env.PUSH_KV.get(`pending:${k}`)
+    await env.PUSH_KV.delete(`pending:${k}`)
+    return json({ items: pending ? JSON.parse(pending) : [] }, origin)
+  }
+  return json({ error: 'unknown push route' }, origin, 404)
+}
+
+/** Cron: for every subscriber, compare each notify-enabled series' latest chapter
+ *  with what we last announced; queue messages and send a tickle. */
+async function checkAndNotify(env: Env): Promise<void> {
+  const subs = await env.PUSH_KV.list({ prefix: 'sub:' })
+  for (const entry of subs.keys) {
+    const k = entry.name.slice(4)
+    const [subRaw, stateRaw, notifiedRaw] = await Promise.all([
+      env.PUSH_KV.get(`sub:${k}`),
+      env.PUSH_KV.get(`state:${k}`),
+      env.PUSH_KV.get(`notified:${k}`),
+    ])
+    if (!subRaw || !stateRaw) continue
+    const series: SeriesState[] = JSON.parse(stateRaw)
+    const notified: Record<string, string> = notifiedRaw ? JSON.parse(notifiedRaw) : {}
+    const fresh: Array<{ title: string; number: string }> = []
+
+    for (const s of series.slice(0, 30)) {
+      try {
+        const latest = await latestChapterNumber(s.id)
+        if (!latest) continue
+        const seen = Math.max(parseFloat(notified[s.id] ?? '-1'), parseFloat(s.lastNumber ?? '-1'))
+        if (parseFloat(latest) > seen) {
+          fresh.push({ title: s.title, number: latest })
+          notified[s.id] = latest
+        }
+      } catch { /* per-series best effort */ }
+    }
+
+    if (fresh.length === 0) continue
+    const pendingRaw = await env.PUSH_KV.get(`pending:${k}`)
+    const pending = pendingRaw ? JSON.parse(pendingRaw) : []
+    await env.PUSH_KV.put(`pending:${k}`, JSON.stringify([...pending, ...fresh].slice(-20)))
+    await env.PUSH_KV.put(`notified:${k}`, JSON.stringify(notified))
+    const status = await sendTickle(JSON.parse(subRaw), env)
+    if (status === 404 || status === 410) {
+      await Promise.all(['sub', 'state', 'notified', 'pending'].map(p => env.PUSH_KV.delete(`${p}:${k}`)))
+    }
+  }
+}
+
 // --- Main handler ---
 
 export default {
-  async fetch(request: Request): Promise<Response> {
+  async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
+    ctx.waitUntil(checkAndNotify(env))
+  },
+
+  async fetch(request: Request, env: Env): Promise<Response> {
     const origin = request.headers.get('Origin')
 
     if (request.method === 'OPTIONS') {
@@ -304,6 +454,12 @@ export default {
     }
 
     const url = new URL(request.url)
+
+    // /push/* — Web Push subscription/state/pending
+    if (url.pathname.startsWith('/push/')) {
+      if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(origin) })
+      return handlePush(request, env, origin)
+    }
 
     // /api — MangaDex API proxy
     if (url.pathname.startsWith('/api/')) {

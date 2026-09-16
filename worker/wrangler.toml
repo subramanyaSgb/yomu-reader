@@ -4,3 +4,15 @@ compatibility_date = "2026-09-01"
 
 # Local dev: `npx wrangler dev` serves on http://127.0.0.1:8787
 # Deploy (owner account): `npx wrangler login` then `npx wrangler deploy`
+
+# New-chapter push notifications: subscriptions + per-user reading state + pending
+# messages live in KV; the cron checks reading lists and sends VAPID pushes.
+[[kv_namespaces]]
+binding = "PUSH_KV"
+id = "50b2b64c4335489eab05dfacf81fb0b7"
+
+[vars]
+VAPID_PUBLIC = "BC-ra10M1xYDnlL5trl8fB7feHhyQRvY-9Kp4YHmLAeO_7LmsxIh6H457XhECfNnC-VAbHMssTf_UmIdG_8Pcpw"
+
+[triggers]
+crons = ["0 */2 * * *"] # every 2 hours

@@ -6,6 +6,8 @@ import { getSetting, setSetting } from '../../lib/db/repo'
 export interface SeriesMeta {
   total?: number             // known chapter count
   lastNumber?: string | null // last chapter number opened in the reader
+  notify?: boolean           // per-series push notifications (default true)
+  autoDl?: boolean           // per-series auto-download of new chapters (default true)
 }
 
 const key = (seriesId: string) => `seriesMeta:${seriesId}`
