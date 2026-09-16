@@ -112,4 +112,5 @@ export const CATALOG: CatalogEntry[] = [
   {"title":"Dice","id":"01J76XY8T2JH0M0DMYBQ2ZTSJG/DICE","wcTitle":"Dice"},
   {"title":"The Investor Who Sees the Future","id":"buddy:zj2qwX5M:the-investor-who-sees-the-future","wcTitle":"The Investor Who Sees the Future","cover":"https://yomu-image-proxy.subramanya-bellary.workers.dev/scrape?site=kakalot&action=img&u=https%3A%2F%2Frx.comizy.io%2Fcovers%2Fa92e2448c373.webp&ref=https%3A%2F%2Fcomizy.io%2F"},
   {"title":"Super Gene","id":"buddy:Gj7042Ov:super-gene","wcTitle":"Super Gene","cover":"https://yomu-image-proxy.subramanya-bellary.workers.dev/scrape?site=kakalot&action=img&u=https%3A%2F%2Frx.comizy.io%2Fcovers%2F6e99a956cfff.webp&ref=https%3A%2F%2Fcomizy.io%2F"},
+  {"title":"Global Freeze: I Created An Apocalypse Shelter","id":"buddy:RO60Vk5w:global-freeze-i-created-an-apocalypse-shelter","wcTitle":"Global Freeze: I Created An Apocalypse Shelter","cover":"https://yomu-image-proxy.subramanya-bellary.workers.dev/scrape?site=kakalot&action=img&u=https%3A%2F%2Frx.comizy.io%2Fcovers%2Fc4b848eea950.webp&ref=https%3A%2F%2Fcomizy.io%2F"},
 ]
