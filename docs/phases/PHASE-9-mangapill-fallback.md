@@ -46,6 +46,21 @@ App `npm run build` clean; `worker npx tsc --noEmit` clean; all 16 `*.selfcheck.
 - Old Kakalot ids stored in library/progress will fail gracefully (empty chapter list) —
   no migration; the fallback source re-resolves by title search anyway.
 
+## Addendum — cover art fixes (same day)
+
+Two follow-up breakages found after the owner loaded the deployed app:
+
+1. **Covers showed MangaDex's anti-hotlink placeholder.** `mangaCoverUrl()` hotlinked
+   `uploads.mangadex.org` directly; MD serves a "read this at MangaDex" image when the
+   Referer is a foreign origin. Fix: new `buildCoverProxyUrl()` in `src/lib/proxy/imageUrl.ts`;
+   `mangaCoverUrl()` now routes covers through the Worker `/img` (commit 69508a5).
+2. **Then covers 400'd.** uploads.mangadex.org rate-limits bursts from Worker IPs with
+   HTTP 400, and `cacheEverything` pinned those 400s at the CF edge (observed sticky for
+   >10 min, TTL possibly 1 day). Fix: `/img` sends an honest `YomuReader/1.0` UA (no
+   Referer) to the uploads host, and on any upstream error refetches once with a throwaway
+   query param — fresh cache key, retry not cached (commit 2b07a15). Verified: a poisoned
+   URL recovers, and a parallel 40-cover home-screen burst returns 40×200.
+
 **Known gaps carried forward:**
 - Mangapill has no publish dates on series pages → `publishAt` is always `''` (UI shows title only).
 - Legacy `site=kakalot` wire key / `'kakalot'` source value now mean "fallback source
