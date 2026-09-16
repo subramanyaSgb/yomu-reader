@@ -87,3 +87,9 @@ A real MangaDex chapter's pages display in the browser **through the Cloudflare 
 All exit criteria met. The two project-killing risks (MangaDex CORS image lock + polite API access) are proven solved. Foundations in place: scaffold, rate-limited client, restricted image proxy, query hooks, working end-to-end spike.
 
 **Owner handoff before Phase 1 relies on cloud:** deploy the worker (`cd worker && npx wrangler login && npx wrangler deploy`) and set `VITE_IMAGE_PROXY` to the deployed URL for the Vercel app. Local dev needs neither.
+
+### Worker DEPLOYED ✅ (2026-09-16)
+- Live at `https://yomu-image-proxy.subramanya-bellary.workers.dev` (Cloudflare free tier — unlimited egress, 100k req/day).
+- Owner registered workers.dev subdomain + enabled Production/Preview routes (one-time dashboard step; not doable headlessly).
+- **Live verified:** real chapter image → **200, image/png, 19323 bytes**, CORS header for `yomu.vercel.app`, forbidden-host guard → **403**. (A first attempt hit 400 from a stale at-home URL — the ~15-min expiry we designed around; fresh fetch works.)
+- App wiring: `.env` (gitignored) holds `VITE_IMAGE_PROXY` for local; `.env.example` committed. **Vercel TODO:** set `VITE_IMAGE_PROXY` env in Project Settings when the app is deployed there.
