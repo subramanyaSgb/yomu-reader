@@ -77,15 +77,16 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
 
   const isLicensed = feed.data != null && mdChapters.length === 0 && source === 'mangadex'
 
-  // WeebCentral ('kakalot' key): direct source for its own search results, and the
-  // fallback reader source for licensed MD series AND all Comick series
-  // (Comick's API doesn't expose page images).
-  const needsKakalot = isLicensed || isComick
-  const kkSearch = useKakalotSearch(!isKakalot && needsKakalot && title && title !== '…' ? title : '')
+  // WeebCentral ('kakalot' key): direct source for its own search results, the reader
+  // for all Comick series (Comick's API doesn't expose page images), and checked for
+  // EVERY MangaDex series — MD often has only a few stray readable chapters (the rest
+  // external/licensed), so whichever source has more chapters wins.
+  const kkSearch = useKakalotSearch(!isKakalot && title && title !== '…' ? title : '')
   const kkMangaId = isKakalot ? id : (kkSearch.data?.[0]?.id ?? null)
   const kkFeed = useKakalotChapters(kkMangaId ?? '')
   const kkChapters = kkFeed.data?.chapters ?? []
-  const showKkChapters = isKakalot || isLicensed
+  const kkBetter = source === 'mangadex' && feed.data != null && kkChapters.length > mdChapters.length
+  const showKkChapters = isKakalot || kkBetter
 
   const displayChapterCount = isComick ? ckChapters.length : (showKkChapters ? kkChapters.length : mdChapters.length)
 
@@ -247,7 +248,7 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
         })}
 
         {/* MangaDex chapters */}
-        {!isLicensed && !isComick && mdChapters.map((ch, i) => {
+        {!showKkChapters && !isComick && mdChapters.map((ch, i) => {
           const num = ch.attributes.chapter ?? `${i + 1}`
           const chTitle = ch.attributes.title ?? ''
           const group = groupName(ch)
@@ -290,33 +291,31 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
           <p style={{ fontSize: 10.5, fontWeight: 500, color: 'var(--y-dim)', padding: '8px 18px 100px', lineHeight: 1.55 }}>
             {isComick
               ? 'Chapter list from Comick. Reading opens the matching series on WeebCentral.'
-              : isKakalot
-                ? 'Chapters sourced from WeebCentral.'
-                : isLicensed
-                  ? 'Chapters sourced from WeebCentral (licensed on MangaDex).'
-                  : 'Only English chapters with pages on MangaDex are listed.'}
+              : showKkChapters
+                ? (isLicensed ? 'Chapters sourced from WeebCentral (licensed on MangaDex).' : 'Chapters sourced from WeebCentral.')
+                : 'Only English chapters with pages on MangaDex are listed.'}
           </p>
         )}
 
         {/* Sticky CTA */}
         <div style={{ position: 'sticky', bottom: 0, padding: '0 18px 20px', background: 'linear-gradient(to top, var(--y-bg) 45%, transparent)', zIndex: 3 }}>
           <button
-            disabled={(isComick || isLicensed) && !kkMangaId}
+            disabled={(isComick || showKkChapters) && !kkMangaId}
             onClick={() => {
-              if (isComick || isLicensed || isKakalot) {
+              if (isComick || showKkChapters) {
                 onRead(kkMangaId ?? undefined, 'kakalot')
               } else {
                 onRead(id, 'mangadex', lastMdChapter?.id ?? firstMdChapter?.id)
               }
             }} style={{
             width: '100%', height: 52, borderRadius: 14,
-            background: (isComick || isLicensed) && !kkMangaId ? 'var(--y-surf)' : 'var(--y-p)',
-            color: (isComick || isLicensed) && !kkMangaId ? 'var(--y-dim)' : 'var(--y-onp)',
-            fontSize: 15, fontWeight: 700, border: 'none', cursor: (isComick || isLicensed) && !kkMangaId ? 'default' : 'pointer',
+            background: (isComick || showKkChapters) && !kkMangaId ? 'var(--y-surf)' : 'var(--y-p)',
+            color: (isComick || showKkChapters) && !kkMangaId ? 'var(--y-dim)' : 'var(--y-onp)',
+            fontSize: 15, fontWeight: 700, border: 'none', cursor: (isComick || showKkChapters) && !kkMangaId ? 'default' : 'pointer',
           }}>
             {isComick
               ? (kkMangaId ? 'Read on WeebCentral' : (kkSearch.isLoading ? 'Finding readable source…' : 'No readable source found'))
-              : (isLicensed || isKakalot)
+              : showKkChapters
                 ? (lastKkChapter ? `Continue · Ch. ${lastKkChapter.number ?? '1'}` : 'Start reading · Ch. 1')
                 : (lastMdChapter ? `Continue · Ch. ${lastMdChapter.attributes.chapter ?? '1'}` : 'Start reading · Ch. 1')
             }

@@ -96,7 +96,26 @@ function wcCoverUrl(seriesUlid: string): string {
 }
 
 async function scrapeSearch(query: string, workerOrigin: string): Promise<KakalotManga[]> {
-  const q = encodeURIComponent(query.trim())
+  // WC search is strict AND-matching, so "Omniscient Reader's Viewpoint" finds nothing
+  // while its WC title is "Omniscient Reader". Ladder: full query → possessives/punctuation
+  // stripped → progressively drop trailing words.
+  const attempts: string[] = []
+  const push = (s: string) => { if (s && !attempts.includes(s)) attempts.push(s) }
+  push(query.trim())
+  const cleaned = query.replace(/['’]s\b/gi, '').replace(/[^\p{L}\p{N} ]+/gu, ' ').replace(/\s+/g, ' ').trim()
+  push(cleaned)
+  const words = cleaned.split(' ')
+  for (let n = words.length - 1; n >= 1 && attempts.length < 6; n--) push(words.slice(0, n).join(' '))
+
+  for (const attempt of attempts) {
+    const results = await wcSearchOnce(attempt, workerOrigin)
+    if (results.length) return results
+  }
+  return []
+}
+
+async function wcSearchOnce(query: string, workerOrigin: string): Promise<KakalotManga[]> {
+  const q = encodeURIComponent(query)
   const html = await wcFetch(
     `${WC}/search/data?limit=24&offset=0&text=${q}&sort=Best%20Match&order=Ascending&official=Any&display_mode=Full%20Display`,
   )
