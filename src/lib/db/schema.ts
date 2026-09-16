@@ -77,6 +77,20 @@ export interface Download {
   createdAt: number
 }
 
+export type Shelf = 'reading' | 'completed' | 'on-hold' | 'dropped' | 'plan-to-read'
+
+export interface LibraryRow {
+  seriesId: string
+  title: string
+  shelf: Shelf
+  collections: string[]
+  notify: boolean // Phase 4: per-series "notify me"
+  lastReadAt: number
+  lastUpdatedAt: number
+  totalChapters: number
+  readChapters: number
+}
+
 class YomuDB extends Dexie {
   series!: EntityTable<Series, 'id'>
   chapters!: EntityTable<ChapterRow, 'id'>
@@ -84,6 +98,7 @@ class YomuDB extends Dexie {
   settings!: EntityTable<Setting, 'key'>
   imageBytes!: EntityTable<ImageBytes, 'key'>
   downloads!: EntityTable<Download, 'chapterId'>
+  library!: EntityTable<LibraryRow, 'seriesId'>
 
   constructor() {
     super('yomu')
@@ -101,6 +116,16 @@ class YomuDB extends Dexie {
       settings: 'key',
       imageBytes: 'key, chapterId, tier, lastAccess',
       downloads: 'chapterId, seriesId, status',
+    })
+    // v3: library shelves/collections + notify flag (Phase 3/4).
+    this.version(3).stores({
+      series: 'id, source, type, updatedAt',
+      chapters: 'id, seriesId',
+      progress: 'seriesId, updatedAt',
+      settings: 'key',
+      imageBytes: 'key, chapterId, tier, lastAccess',
+      downloads: 'chapterId, seriesId, status',
+      library: 'seriesId, shelf, notify, lastReadAt, lastUpdatedAt',
     })
   }
 }
