@@ -3,6 +3,7 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { mdGet } from './client'
+import { buildCoverProxyUrl } from '../proxy/imageUrl'
 
 // --- Minimal typings ---
 
@@ -48,8 +49,9 @@ export function mangaCoverUrl(manga: MDManga): string | null {
   const rel = manga.relationships.find((r) => r.type === 'cover_art')
   const fileName = rel?.attributes?.fileName
   if (!fileName) return null
-  // MangaDex cover CDN — served via uploads.mangadex.org (allowed in worker /img)
-  return `https://uploads.mangadex.org/covers/${manga.id}/${fileName}.256.jpg`
+  // Must go through the Worker: uploads.mangadex.org serves an anti-hotlink
+  // placeholder image when the Referer isn't mangadex.org.
+  return buildCoverProxyUrl(manga.id, fileName)
 }
 
 export interface MDChapter {

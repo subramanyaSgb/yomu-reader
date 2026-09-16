@@ -34,6 +34,18 @@ export function buildPageProxyUrl(
   return proxied.toString()
 }
 
+/**
+ * Cover URL routed through the Worker. uploads.mangadex.org serves an anti-hotlink
+ * placeholder ("you can read this at MangaDex") when the Referer is a foreign site,
+ * so covers must NOT be hotlinked from the app origin — the Worker spoofs the Referer.
+ */
+export function buildCoverProxyUrl(mangaId: string, fileName: string): string {
+  const direct = `https://uploads.mangadex.org/covers/${mangaId}/${fileName}.256.jpg`
+  const proxied = new URL('/img', PROXY_BASE)
+  proxied.searchParams.set('u', direct)
+  return proxied.toString()
+}
+
 /** Guard used by the self-check: true only for a MangaDex @Home network host. */
 export function isMangaDexAtHomeHost(host: string): boolean {
   return /(^|\.)mangadex\.network$/.test(host) || host === 'uploads.mangadex.org'

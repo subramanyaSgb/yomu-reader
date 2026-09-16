@@ -4,7 +4,7 @@ import { coverHue } from '../../components/CoverGradient'
 import type { SeriesSource } from '../../App'
 
 function CoverImg({ manga, width, height, radius = 14 }: { manga: MDManga; width: number; height: number; radius?: number }) {
-  const cover = mangaCoverUrl(manga) // uploads.mangadex.org has CORS — no proxy needed
+  const cover = mangaCoverUrl(manga) // proxied via Worker (MD covers are anti-hotlink)
   const hue = coverHue(manga.id)
   return (
     <div style={{ width, height, borderRadius: radius, overflow: 'hidden', flexShrink: 0, position: 'relative',

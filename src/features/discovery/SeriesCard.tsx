@@ -11,7 +11,7 @@ export default function SeriesCard({
   manga: MDManga
   onOpen: (id: string, source: SeriesSource) => void
 }) {
-  const cover = mangaCoverUrl(manga) // uploads.mangadex.org has CORS — no proxy needed
+  const cover = mangaCoverUrl(manga) // proxied via Worker (MD covers are anti-hotlink)
   const title = mangaEnTitle(manga)
 
   return (
