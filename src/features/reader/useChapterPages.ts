@@ -17,7 +17,10 @@ function useDownloadedPages(chapterId: string | undefined) {
   return useQuery({
     queryKey: ['downloaded', chapterId],
     enabled: !!chapterId,
-    staleTime: Infinity,
+    // Re-check on every mount: a chapter downloaded THIS session must be picked up
+    // without an app restart (Infinity here once cached the "not downloaded" answer).
+    staleTime: 0,
+    gcTime: 0,
     queryFn: async (): Promise<string[] | null> => {
       const d = await db.downloads.get(chapterId!)
       if (d?.status !== 'done') return null

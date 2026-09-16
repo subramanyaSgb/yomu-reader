@@ -44,10 +44,12 @@ export default function App() {
       .catch(() => { /* best effort */ })
       .then(() => hasSeenOnboarding())
       .then(seen => setOnboarding(!seen))
-    // Refresh persistence: nav state lives in history.state, so a reload restores
-    // the exact screen (detail/reader) instead of dumping back to the shelf.
-    const hs = history.state as { stack?: OverlayScreen[]; tab?: Tab } | null
-    if (hs?.tab) setTab(hs.tab)
+    // Refresh persistence: the overlay stack lives in history.state (reload restores
+    // the exact screen); the tab lives in sessionStorage — NOT history.state, because
+    // async history.go() during tab switches raced replaceState and reverted the tab.
+    const savedTab = sessionStorage.getItem('yomu:tab') as Tab | null
+    if (savedTab === 'reading' || savedTab === 'want' || savedTab === 'completed') setTab(savedTab)
+    const hs = history.state as { stack?: OverlayScreen[] } | null
     if (hs?.stack?.length) setStack(hs.stack)
   }, [])
 
@@ -60,9 +62,8 @@ export default function App() {
       if (stackRef.current[stackRef.current.length - 1]?.kind === 'reader') {
         setDetailRefresh(n => n + 1)
       }
-      const hs = e.state as { stack?: OverlayScreen[]; tab?: Tab } | null
+      const hs = e.state as { stack?: OverlayScreen[] } | null
       setStack(hs?.stack ?? [])
-      if (hs?.tab) setTab(hs.tab)
     }
     window.addEventListener('popstate', onPop)
     return () => window.removeEventListener('popstate', onPop)
@@ -70,7 +71,7 @@ export default function App() {
 
   function pushOverlay(o: OverlayScreen) {
     const next = [...stackRef.current, o]
-    history.pushState({ stack: next, tab }, '')
+    history.pushState({ stack: next }, '')
     setStack(next)
   }
 
@@ -97,7 +98,7 @@ export default function App() {
     }
     setStack([])
     setTab(t)
-    history.replaceState({ stack: [], tab: t }, '')
+    sessionStorage.setItem('yomu:tab', t)
   }
 
   if (onboarding === null) return null

@@ -248,8 +248,10 @@ export default function ReaderShell({ seriesId, seriesSource, seriesType, startC
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chapterIndex, restored, chapterRefs])
 
-  // Still waiting for auto-fallback to resolve.
-  if (isLoading || (mdHasNoReadable && kkFallbackSearch.isLoading)) {
+  // Still waiting for auto-fallback to resolve — or for progress restore. Renderers
+  // must not mount pre-restore: PagedRenderer reads initialPage only at mount, and
+  // gating also avoids a flash of chapter 0 before the restored chapter applies.
+  if (isLoading || (mdHasNoReadable && kkFallbackSearch.isLoading) || (!restored && chapterRefs.length > 0)) {
     return <Centered>
       {mdHasNoReadable ? 'Not on MangaDex — searching WeebCentral…' : 'Loading chapters…'}
     </Centered>
