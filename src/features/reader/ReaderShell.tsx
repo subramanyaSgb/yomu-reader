@@ -4,6 +4,10 @@
 // searches Kakalot by title and uses the first match automatically.
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import {
+  ArrowLeft, Bookmark as BookmarkIcon, Check, ChevronDown, ChevronLeft, ChevronRight,
+  Settings as SettingsIcon, Play, Pause,
+} from 'lucide-react'
 import { useChapterFeed, mangaEnTitle } from '../../lib/mangadex/queries'
 import { useQuery } from '@tanstack/react-query'
 import { mdGet } from '../../lib/mangadex/client'
@@ -280,8 +284,6 @@ export default function ReaderShell({ seriesId, seriesSource, seriesType, startC
     return <Centered>No readable chapters found on any source.</Centered>
   }
 
-  const sourceLabel = activeSource === 'kakalot' ? ' (via WeebCentral)' : ''
-
   const currentRef = chapterRefs[chapterIndex]
   const quality = mem.quality ?? 'source'
 
@@ -294,28 +296,23 @@ export default function ReaderShell({ seriesId, seriesSource, seriesType, startC
         display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 10px',
         background: 'linear-gradient(to bottom, rgba(0,0,0,0.75), transparent)',
       }}>
-        <button onClick={onClose} style={{ width: 44, height: 44, borderRadius: 12, background: 'rgba(255,255,255,0.1)', border: 'none', cursor: 'pointer', color: '#fff', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>
-          ←
+        <button onClick={onClose} aria-label="Back" style={{ width: 42, height: 42, borderRadius: '50%', background: 'rgba(255,255,255,0.1)', border: 'none', cursor: 'pointer', color: '#fff', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <ArrowLeft size={19} />
         </button>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {sourceLabel && (
-            <span style={{ background: 'rgba(242,193,78,0.2)', color: 'var(--y-a)', fontSize: 9.5, fontWeight: 800, borderRadius: 20, padding: '4px 10px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-              WeebCentral
-            </span>
-          )}
-          <button onClick={saveBookmarkHere} aria-label="Bookmark this spot" style={{ height: 36, padding: '0 12px', borderRadius: 20, background: bookmarkFlash ? 'var(--y-p)' : 'rgba(255,255,255,0.1)', border: 'none', cursor: 'pointer', color: bookmarkFlash ? 'var(--y-onp)' : '#fff', backdropFilter: 'blur(8px)', fontSize: 12, fontWeight: 700 }}>
-            {bookmarkFlash ? 'Saved ✓' : '🔖'}
+          <button onClick={saveBookmarkHere} aria-label="Bookmark this spot" style={{ width: 42, height: 42, borderRadius: '50%', background: bookmarkFlash ? 'var(--y-p)' : 'rgba(255,255,255,0.1)', border: 'none', cursor: 'pointer', color: bookmarkFlash ? 'var(--y-onp)' : '#fff', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.2s' }}>
+            {bookmarkFlash ? <Check size={17} strokeWidth={3} /> : <BookmarkIcon size={17} />}
           </button>
-          <button onClick={() => setSheet('chapters')} style={{ height: 36, padding: '0 12px', borderRadius: 20, background: 'rgba(255,255,255,0.1)', border: 'none', cursor: 'pointer', color: '#fff', backdropFilter: 'blur(8px)', fontSize: 12, fontWeight: 700 }}>
-            Ch. {currentRef?.number ?? '?'} ▾
+          <button onClick={() => setSheet('chapters')} style={{ height: 42, padding: '0 14px', borderRadius: 21, background: 'rgba(255,255,255,0.1)', border: 'none', cursor: 'pointer', color: '#fff', backdropFilter: 'blur(8px)', fontSize: 12.5, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4 }}>
+            Ch. {currentRef?.number ?? '?'} <ChevronDown size={14} />
           </button>
           {activeSource === 'mangadex' && (
-            <button onClick={() => setSheet('versions')} style={{ height: 36, padding: '0 12px', borderRadius: 20, background: 'rgba(255,255,255,0.1)', border: 'none', cursor: 'pointer', color: '#fff', backdropFilter: 'blur(8px)', fontSize: 12, fontWeight: 700 }}>
+            <button onClick={() => setSheet('versions')} style={{ height: 42, padding: '0 14px', borderRadius: 21, background: 'rgba(255,255,255,0.1)', border: 'none', cursor: 'pointer', color: '#fff', backdropFilter: 'blur(8px)', fontSize: 12.5, fontWeight: 700 }}>
               Version
             </button>
           )}
-          <button onClick={() => setSheet('controls')} style={{ width: 44, height: 44, borderRadius: 12, background: 'rgba(255,255,255,0.1)', border: 'none', cursor: 'pointer', color: '#fff', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>
-            ⚙
+          <button onClick={() => setSheet('controls')} aria-label="Reader settings" style={{ width: 42, height: 42, borderRadius: '50%', background: 'rgba(255,255,255,0.1)', border: 'none', cursor: 'pointer', color: '#fff', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <SettingsIcon size={17} />
           </button>
         </div>
       </div>
@@ -366,9 +363,10 @@ export default function ReaderShell({ seriesId, seriesSource, seriesType, startC
         }}>
           <button
             disabled={chapterIndex === 0}
+            aria-label="Previous chapter"
             onClick={() => setChapterIndex(i => Math.max(0, i - 1))}
-            style={{ height: 40, padding: '0 16px', borderRadius: 20, background: 'rgba(255,255,255,0.12)', border: 'none', cursor: 'pointer', color: chapterIndex === 0 ? 'rgba(255,255,255,0.3)' : '#fff', backdropFilter: 'blur(8px)', fontSize: 12.5, fontWeight: 700 }}>
-            ‹ Prev
+            style={{ height: 40, padding: '0 14px', borderRadius: 20, background: 'rgba(255,255,255,0.12)', border: 'none', cursor: 'pointer', color: chapterIndex === 0 ? 'rgba(255,255,255,0.3)' : '#fff', backdropFilter: 'blur(8px)', fontSize: 12.5, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 2 }}>
+            <ChevronLeft size={15} /> Prev
           </button>
           <span style={{ background: 'rgba(0,0,0,0.55)', color: '#fff', fontSize: 12, fontWeight: 700, borderRadius: 20, padding: '9px 14px', backdropFilter: 'blur(8px)', whiteSpace: 'nowrap' }}>
             Ch. {currentRef?.number ?? '?'}{mode === 'scroll' ? ` · ${progressPct}%` : ''} · {chapterIndex + 1}/{chapterRefs.length}
@@ -376,15 +374,17 @@ export default function ReaderShell({ seriesId, seriesSource, seriesType, startC
           {mode === 'scroll' && (
             <button
               onClick={() => setAutoScrollOn(a => !a)}
-              style={{ height: 40, padding: '0 14px', borderRadius: 20, background: autoScrollOn ? 'var(--y-p)' : 'rgba(255,255,255,0.12)', border: 'none', cursor: 'pointer', color: autoScrollOn ? 'var(--y-onp)' : '#fff', backdropFilter: 'blur(8px)', fontSize: 12.5, fontWeight: 700 }}>
-              {autoScrollOn ? '⏸ Auto' : '▶ Auto'}
+              aria-label={autoScrollOn ? 'Pause auto-scroll' : 'Start auto-scroll'}
+              style={{ height: 40, padding: '0 14px', borderRadius: 20, background: autoScrollOn ? 'var(--y-p)' : 'rgba(255,255,255,0.12)', border: 'none', cursor: 'pointer', color: autoScrollOn ? 'var(--y-onp)' : '#fff', backdropFilter: 'blur(8px)', fontSize: 12.5, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 5 }}>
+              {autoScrollOn ? <Pause size={13} /> : <Play size={13} />} Auto
             </button>
           )}
           <button
             disabled={chapterIndex >= chapterRefs.length - 1}
+            aria-label="Next chapter"
             onClick={() => setChapterIndex(i => Math.min(chapterRefs.length - 1, i + 1))}
-            style={{ height: 40, padding: '0 16px', borderRadius: 20, background: 'rgba(255,255,255,0.12)', border: 'none', cursor: 'pointer', color: chapterIndex >= chapterRefs.length - 1 ? 'rgba(255,255,255,0.3)' : '#fff', backdropFilter: 'blur(8px)', fontSize: 12.5, fontWeight: 700 }}>
-            Next ›
+            style={{ height: 40, padding: '0 14px', borderRadius: 20, background: 'rgba(255,255,255,0.12)', border: 'none', cursor: 'pointer', color: chapterIndex >= chapterRefs.length - 1 ? 'rgba(255,255,255,0.3)' : '#fff', backdropFilter: 'blur(8px)', fontSize: 12.5, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 2 }}>
+            Next <ChevronRight size={15} />
           </button>
         </div>
       )}

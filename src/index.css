@@ -13,3 +13,15 @@ body,
   color: #e0e0e0;
   font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
 }
+
+/* Professional touch feedback everywhere: no blue tap flash, subtle press dim. */
+button {
+  -webkit-tap-highlight-color: transparent;
+  transition: opacity 0.12s ease;
+}
+button:active:not(:disabled) {
+  opacity: 0.75;
+}
+input {
+  -webkit-tap-highlight-color: transparent;
+}

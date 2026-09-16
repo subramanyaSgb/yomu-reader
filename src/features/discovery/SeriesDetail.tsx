@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
-  ArrowLeft, Download, Star, ChevronDown, ExternalLink, ChevronUp
+  ArrowLeft, Download, Star, ChevronDown, ExternalLink, ChevronUp,
+  Check, Loader2, Bookmark as BookmarkIcon, X as XIcon,
 } from 'lucide-react'
 import { useShelves, shelfOf, type Shelf } from '../shelf/shelf'
 import { useReadSet } from '../reader/readTracking'
@@ -45,6 +46,24 @@ interface Props {
 }
 
 const STATUS_LABEL: Record<number, string> = { 1: 'ongoing', 2: 'completed', 3: 'cancelled', 4: 'hiatus' }
+
+/** Consistent 34px circular icon button for list-row actions. */
+function RowIconBtn({ active, busy, label, onClick, children }: {
+  active?: boolean; busy?: boolean; label: string; onClick: () => void; children: React.ReactNode
+}) {
+  return (
+    <button onClick={onClick} aria-label={label} disabled={busy} style={{
+      width: 34, height: 34, borderRadius: '50%', flexShrink: 0,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      border: `1.5px solid ${active ? 'transparent' : 'var(--y-line)'}`,
+      background: active ? 'rgba(23,181,126,0.16)' : 'transparent',
+      color: active ? 'var(--y-ok)' : 'var(--y-dim)',
+      cursor: busy ? 'default' : 'pointer', transition: 'background 0.15s, color 0.15s',
+    }}>
+      {busy ? <Loader2 size={15} className="animate-spin" /> : children}
+    </button>
+  )
+}
 
 export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
   const isComick = source === 'comick'
@@ -371,10 +390,10 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
             {marks.map(b => (
               <div key={b.at} style={{ display: 'flex', alignItems: 'center' }}>
                 <button onClick={() => onRead(kkMangaId ?? undefined, 'kakalot', b.chapterId, b.position)} style={{
-                  flex: 1, height: 44, display: 'flex', alignItems: 'center', gap: 8, padding: '0 14px',
+                  flex: 1, height: 44, display: 'flex', alignItems: 'center', gap: 10, padding: '0 14px',
                   background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left',
                 }}>
-                  <span style={{ fontSize: 13 }}>🔖</span>
+                  <BookmarkIcon size={14} style={{ color: 'var(--y-a)', flexShrink: 0 }} />
                   <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--y-hi)' }}>Chapter {b.number ?? '?'}</span>
                   <span style={{ fontSize: 10.5, fontWeight: 500, color: 'var(--y-dim)' }}>
                     {b.position.kind === 'paged' ? `page ${b.position.pageIndex + 1}` : `${Math.round(b.position.offsetPct * 100)}% into panel ${b.position.imageIndex + 1}`}
@@ -383,7 +402,9 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
                 </button>
                 <button onClick={() => { void removeBookmark(b.seriesId, b.at); setMarks(m => m.filter(x => x.at !== b.at)) }}
                   aria-label="Remove bookmark"
-                  style={{ width: 44, height: 44, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--y-dim)', fontSize: 15 }}>×</button>
+                  style={{ width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--y-dim)' }}>
+                  <XIcon size={15} />
+                </button>
               </div>
             ))}
           </div>
@@ -497,28 +518,26 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
                   <div style={{ fontSize: 13.5, fontWeight: 700, color: isCurrent ? 'var(--y-plt)' : 'var(--y-hi)', marginBottom: 3 }}>
                     Chapter {displayNum}
                     {isCurrent && <span style={{ fontSize: 9, fontWeight: 800, marginLeft: 8, background: 'var(--y-pa)', color: 'var(--y-plt)', borderRadius: 6, padding: '2px 6px', textTransform: 'uppercase' }}>Continue</span>}
-                    {dlSet.has(ch.id) && <span style={{ fontSize: 9, fontWeight: 800, marginLeft: 8, background: 'rgba(23,181,126,0.15)', color: 'var(--y-ok)', borderRadius: 6, padding: '2px 6px', textTransform: 'uppercase' }}>Offline</span>}
                   </div>
                   <div style={{ fontSize: 11, fontWeight: 500, color: 'var(--y-dim)' }}>{ch.title ?? 'WeebCentral'}</div>
                 </div>
               </button>
-              {/* per-chapter download / remove */}
-              <button
-                onClick={() => void toggleChapterDownload(ch.id)}
-                aria-label={dlSet.has(ch.id) ? 'Remove download' : 'Download chapter'} style={{
-                width: 44, minHeight: 60, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                background: 'none', border: 'none', cursor: 'pointer',
-                color: dlSet.has(ch.id) ? 'var(--y-ok)' : 'var(--y-line)', fontSize: 15,
-              }}>{chapterBusy.has(ch.id) ? '…' : dlSet.has(ch.id) ? '⬇✓' : '⬇'}</button>
-              {/* read/unread toggle: read → unmark directly; unread → sheet offers
-                  "just this one" or "everything up to here" (bulk mark). */}
-              <button
-                onClick={() => { if (isRead) { void toggleRead(ch.id) } else { setBulkTarget({ id: ch.id, number: ch.number }) } }}
-                aria-label={isRead ? 'Mark unread' : 'Mark read'} style={{
-                width: 44, minHeight: 60, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                background: 'none', border: 'none', cursor: 'pointer',
-                color: isRead ? 'var(--y-ok)' : 'var(--y-line)', fontSize: 17, fontWeight: 800,
-              }}>✓</button>
+              {/* row actions: download / read state */}
+              <div style={{ display: 'flex', gap: 8, paddingRight: 16, alignItems: 'center' }}>
+                <RowIconBtn
+                  label={dlSet.has(ch.id) ? 'Remove download' : 'Download chapter'}
+                  active={dlSet.has(ch.id)}
+                  busy={chapterBusy.has(ch.id)}
+                  onClick={() => void toggleChapterDownload(ch.id)}>
+                  {dlSet.has(ch.id) ? <Check size={15} strokeWidth={3} /> : <Download size={15} />}
+                </RowIconBtn>
+                <RowIconBtn
+                  label={isRead ? 'Mark unread' : 'Mark read'}
+                  active={isRead}
+                  onClick={() => { if (isRead) { void toggleRead(ch.id) } else { setBulkTarget({ id: ch.id, number: ch.number }) } }}>
+                  <Check size={15} strokeWidth={3} />
+                </RowIconBtn>
+              </div>
             </div>
           )
         })}

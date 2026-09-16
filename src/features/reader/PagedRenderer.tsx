@@ -7,6 +7,7 @@
 // ships the never-broken version first, exactly as the plan requires.
 
 import { useEffect, useRef, useState } from 'react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useChapterPages } from './useChapterPages'
 import { nextIndex, chapterCrossing, type Action, type Direction } from './pagedNav'
 import { chooseTurnMode, type TurnMode } from './curl/capability'
@@ -165,11 +166,12 @@ function ArrowBtn({ side, onClick }: { side: 'left' | 'right'; onClick: () => vo
   return (
     <button
       onClick={onClick}
-      className={`absolute top-1/2 z-20 -translate-y-1/2 rounded-full bg-black/50 px-3 py-2 text-white ${
+      aria-label={side === 'left' ? 'Previous page' : 'Next page'}
+      className={`absolute top-1/2 z-20 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur ${
         side === 'left' ? 'left-2' : 'right-2'
       }`}
     >
-      {side === 'left' ? '‹' : '›'}
+      {side === 'left' ? <ChevronLeft size={18} /> : <ChevronRight size={18} />}
     </button>
   )
 }
