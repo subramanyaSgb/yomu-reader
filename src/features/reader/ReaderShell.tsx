@@ -127,7 +127,7 @@ export default function ReaderShell({ seriesId, seriesSource, seriesType, onClos
       return (kkFeed.data?.chapters ?? []).map((c) => ({
         number: c.number,
         selectedVersionId: c.id,
-        versions: [{ id: c.id, group: 'Mangakakalot', likes: 0, pages: 0 }],
+        versions: [{ id: c.id, group: 'Mangapill', likes: 0, pages: 0 }],
       } as ResolvedChapter))
     }
     return []
@@ -175,7 +175,7 @@ export default function ReaderShell({ seriesId, seriesSource, seriesType, onClos
   // Still waiting for auto-fallback to resolve.
   if (isLoading || (mdHasNoReadable && kkFallbackSearch.isLoading)) {
     return <Centered>
-      {mdHasNoReadable ? 'Not on MangaDex — searching Mangakakalot…' : 'Loading chapters…'}
+      {mdHasNoReadable ? 'Not on MangaDex — searching Mangapill…' : 'Loading chapters…'}
     </Centered>
   }
   if (isError) return <Centered>Source unreachable — retry.</Centered>
@@ -183,7 +183,7 @@ export default function ReaderShell({ seriesId, seriesSource, seriesType, onClos
     return <Centered>No readable chapters found on any source.</Centered>
   }
 
-  const sourceLabel = activeSource === 'kakalot' ? ' (via Mangakakalot)' : ''
+  const sourceLabel = activeSource === 'kakalot' ? ' (via Mangapill)' : ''
 
   return (
     <div style={{ position: 'relative', height: '100%', background: mem.gapColor || 'var(--y-black)' }}>
@@ -199,7 +199,7 @@ export default function ReaderShell({ seriesId, seriesSource, seriesType, onClos
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {sourceLabel && (
             <span style={{ background: 'rgba(242,193,78,0.2)', color: 'var(--y-a)', fontSize: 9.5, fontWeight: 800, borderRadius: 20, padding: '4px 10px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-              Kakalot
+              Mangapill
             </span>
           )}
           <button onClick={() => setSheet('versions')} style={{ height: 36, padding: '0 12px', borderRadius: 20, background: 'rgba(255,255,255,0.1)', border: 'none', cursor: 'pointer', color: '#fff', backdropFilter: 'blur(8px)', fontSize: 12, fontWeight: 700 }}>

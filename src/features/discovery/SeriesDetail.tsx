@@ -205,7 +205,7 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
               <span style={{ background: 'var(--y-aa)', color: 'var(--y-a)', fontSize: 9, fontWeight: 800, borderRadius: 6, padding: '2px 6px', marginLeft: 8, textTransform: 'uppercase' }}>Comick</span>
             )}
             {isLicensed && kkChapters.length > 0 && (
-              <span style={{ background: 'var(--y-aa)', color: 'var(--y-a)', fontSize: 9, fontWeight: 800, borderRadius: 6, padding: '2px 6px', marginLeft: 8, textTransform: 'uppercase' }}>Kakalot</span>
+              <span style={{ background: 'var(--y-aa)', color: 'var(--y-a)', fontSize: 9, fontWeight: 800, borderRadius: 6, padding: '2px 6px', marginLeft: 8, textTransform: 'uppercase' }}>Mangapill</span>
             )}
           </span>
           <button onClick={() => setOrder(o => o === 'desc' ? 'asc' : 'desc')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 700, color: 'var(--y-dim)' }}>
@@ -272,7 +272,7 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
             }}>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--y-hi)', marginBottom: 3 }}>Chapter {displayNum}</div>
-                <div style={{ fontSize: 11, fontWeight: 500, color: 'var(--y-dim)' }}>{ch.title ?? 'Mangakakalot'}</div>
+                <div style={{ fontSize: 11, fontWeight: 500, color: 'var(--y-dim)' }}>{ch.title ?? 'Mangapill'}</div>
               </div>
             </button>
           )
@@ -281,9 +281,9 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
         {displayChapterCount > 0 && (
           <p style={{ fontSize: 10.5, fontWeight: 500, color: 'var(--y-dim)', padding: '8px 18px 100px', lineHeight: 1.55 }}>
             {isComick
-              ? 'Chapter list from Comick. Reading opens the matching series on Mangakakalot.'
+              ? 'Chapter list from Comick. Reading opens the matching series on Mangapill.'
               : isLicensed
-                ? 'Chapters sourced from Mangakakalot (licensed on MangaDex).'
+                ? 'Chapters sourced from Mangapill (licensed on MangaDex).'
                 : 'Only English chapters with pages on MangaDex are listed.'}
           </p>
         )}
@@ -305,7 +305,7 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
             fontSize: 15, fontWeight: 700, border: 'none', cursor: (isComick || isLicensed) && !kkMangaId ? 'default' : 'pointer',
           }}>
             {isComick
-              ? (kkMangaId ? 'Read on Mangakakalot' : (kkSearch.isLoading ? 'Finding readable source…' : 'No readable source found'))
+              ? (kkMangaId ? 'Read on Mangapill' : (kkSearch.isLoading ? 'Finding readable source…' : 'No readable source found'))
               : isLicensed
                 ? (lastKkChapter ? `Continue · Ch. ${lastKkChapter.number ?? '1'}` : 'Start reading · Ch. 1')
                 : (lastMdChapter ? `Continue · Ch. ${lastMdChapter.attributes.chapter ?? '1'}` : 'Start reading · Ch. 1')
