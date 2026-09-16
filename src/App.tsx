@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { loadTheme } from './features/settings/theme'
 import HomeScreen from './features/discovery/HomeScreen'
 import SearchScreen from './features/discovery/SearchScreen'
 import LibraryScreen from './features/library/LibraryScreen'
@@ -20,6 +21,10 @@ const TABS: { id: Tab; label: string; icon: string }[] = [
 export default function App() {
   const [tab, setTab] = useState<Tab>('home')
   const [reading, setReading] = useState<{ id: string; type: SeriesType } | null>(null)
+
+  useEffect(() => {
+    void loadTheme()
+  }, [])
 
   // Series type is refined from MangaDex tags in Phase 5; default manga for reader mode now.
   const openSeries = (id: string) => setReading({ id, type: 'manga' })

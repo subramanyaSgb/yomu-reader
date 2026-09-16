@@ -17,6 +17,8 @@ interface Props {
   startIndex: number
   onChapterChange?: (chapterIndex: number) => void
   onAnchorChange?: (anchor: ScrollAnchor) => void
+  autoScroll?: boolean // FR-12
+  autoScrollSpeed?: number // px per tick
 }
 
 // One chapter's images stacked; reports its images as loaded so the parent can measure.
@@ -38,6 +40,8 @@ export default function VerticalScrollRenderer({
   startIndex,
   onChapterChange,
   onAnchorChange,
+  autoScroll = false,
+  autoScrollSpeed = 1,
 }: Props) {
   const scroller = useRef<HTMLDivElement>(null)
   // Which chapters are mounted (grows as you scroll toward the end — seamless transition).
@@ -49,6 +53,17 @@ export default function VerticalScrollRenderer({
     setLoadedCount(1)
     currentIndexRef.current = startIndex
   }, [startIndex])
+
+  // Auto-scroll (FR-12): hands-free scroll; any manual touch pauses via CSS overscroll.
+  useEffect(() => {
+    if (!autoScroll) return
+    const el = scroller.current
+    if (!el) return
+    const id = window.setInterval(() => {
+      el.scrollTop += autoScrollSpeed
+    }, 16) // ~60fps
+    return () => window.clearInterval(id)
+  }, [autoScroll, autoScrollSpeed])
 
   function onScroll() {
     const el = scroller.current

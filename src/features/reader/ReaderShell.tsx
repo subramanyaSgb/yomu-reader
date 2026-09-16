@@ -4,6 +4,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useChapterFeed } from '../../lib/mangadex/queries'
 import { makeProgressSaver, restoreProgress } from './resume'
+import { trackChapterRead } from '../stats/statsRepo'
+import { useWakeLock } from '../settings/useWakeLock'
 import {
   resolveChapters,
   inferPreferredGroup,
@@ -37,6 +39,22 @@ export default function ReaderShell({ seriesId, seriesType, onClose }: Props) {
 
   const mode = mem.mode ?? defaultMode(seriesType)
 
+  // Keep screen awake while reading (FR-33).
+  useWakeLock(true)
+
+  // Stats: count a chapter read when the current chapter changes (rough time = 60s/chapter;
+  // refined tracking is a later polish). Genre enrichment lands with series-detail (Phase 6).
+  const prevChapterRef = useRef<string | null>(null)
+  const chapterRefsRef = useRef<ChapterRef[]>([])
+  useEffect(() => {
+    const id = chapterRefsRef.current?.[chapterIndex]?.id
+    if (id && prevChapterRef.current && prevChapterRef.current !== id) {
+      void trackChapterRead(60, [])
+    }
+    if (id) prevChapterRef.current = id
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chapterIndex])
+
   // Resume persistence (FR-18): restore last chapter on open, save throttled + on close.
   const saver = useRef(makeProgressSaver(seriesId))
   const [restored, setRestored] = useState(false)
@@ -63,6 +81,8 @@ export default function ReaderShell({ seriesId, seriesType, onClose }: Props) {
     id: overrides[c.number ?? '__null__'] ?? c.selectedVersionId,
     number: c.number,
   }))
+  // Keep a ref for effects declared earlier in the component.
+  chapterRefsRef.current = chapterRefs
 
   const currentResolved = resolved[chapterIndex]
 
