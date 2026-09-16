@@ -39,8 +39,17 @@ export default function App() {
     hasSeenOnboarding().then(seen => setOnboarding(!seen))
   }, [])
 
+  // Bumped when a reader closes so the detail page below remounts with fresh
+  // progress + read markers.
+  const [detailRefresh, setDetailRefresh] = useState(0)
+
   useEffect(() => {
-    const onPop = () => setStack(s => s.slice(0, -1))
+    const onPop = () => {
+      if (stackRef.current[stackRef.current.length - 1]?.kind === 'reader') {
+        setDetailRefresh(n => n + 1)
+      }
+      setStack(s => s.slice(0, -1))
+    }
     window.addEventListener('popstate', onPop)
     return () => window.removeEventListener('popstate', onPop)
   }, [])
@@ -103,6 +112,7 @@ export default function App() {
         <main style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
           {overlay?.kind === 'detail' && (
             <SeriesDetail
+              key={`${overlay.id}:${detailRefresh}`}
               id={overlay.id}
               source={overlay.source}
               onBack={goBack}

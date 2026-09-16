@@ -1,8 +1,10 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   ArrowLeft, Download, Star, ChevronDown, ExternalLink, ChevronUp
 } from 'lucide-react'
 import { useShelves, shelfOf, type Shelf } from '../shelf/shelf'
+import { useReadSet } from '../reader/readTracking'
+import { restoreProgress } from '../reader/resume'
 import {
   useManga, useChapterFeed, mangaEnTitle, mangaCoverUrl,
   type MDChapter,
@@ -89,9 +91,25 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
   const kkSearch = useKakalotSearch(!isKakalot && title && title !== '…' ? title : '')
   const kkMangaId = isKakalot ? id : (kkSearch.data?.[0]?.id ?? null)
   const kkFeed = useKakalotChapters(kkMangaId ?? '')
-  const kkChapters = kkFeed.data?.chapters ?? []
+  // Worker returns ascending; apply the Newest/Oldest toggle here (it previously only
+  // affected the MD list — the button did nothing for WeebCentral chapters).
+  const kkChapters = useMemo(() => {
+    const chs = kkFeed.data?.chapters ?? []
+    return order === 'desc' ? [...chs].reverse() : chs
+  }, [kkFeed.data, order])
   const kkBetter = source === 'mangadex' && feed.data != null && kkChapters.length > mdChapters.length
   const showKkChapters = isKakalot || kkBetter
+
+  // Read tracking + real continue point. Keyed by the id the reader uses as seriesId.
+  const readSeriesId = (isComick || showKkChapters) ? kkMangaId : id
+  const { readSet, toggle: toggleRead } = useReadSet(readSeriesId)
+  const [lastReadChapterId, setLastReadChapterId] = useState<string | null>(null)
+  useEffect(() => {
+    if (!readSeriesId) return
+    let alive = true
+    restoreProgress(readSeriesId).then(p => { if (alive) setLastReadChapterId(p?.lastChapterId ?? null) })
+    return () => { alive = false }
+  }, [readSeriesId])
 
   const displayChapterCount = isComick ? ckChapters.length : (showKkChapters ? kkChapters.length : mdChapters.length)
 
@@ -103,7 +121,13 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
 
   const firstMdChapter = mdChapters[mdChapters.length - 1]
   const lastMdChapter = mdChapters[0]
-  const lastKkChapter = kkChapters[0]
+
+  // Real continue point from saved progress (not just "newest chapter").
+  const continueKk = lastReadChapterId ? kkChapters.find(c => c.id === lastReadChapterId) : undefined
+  const continueMd = lastReadChapterId ? mdChapters.find(c => c.id === lastReadChapterId) : undefined
+  const unreadCount = showKkChapters
+    ? kkChapters.filter(c => !readSet.has(c.id)).length
+    : mdChapters.filter(c => !readSet.has(c.id)).length
 
   return (
     <div style={{ background: 'var(--y-bg)', minHeight: '100%', position: 'relative' }}>
@@ -210,6 +234,9 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
         <div style={{ borderTop: '1px solid var(--y-line)', padding: '12px 18px 8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, background: 'var(--y-bg)', zIndex: 2 }}>
           <span style={{ fontSize: 14.5, fontWeight: 800, color: 'var(--y-hi)' }}>
             Chapters — {displayChapterCount} EN
+            {!isComick && readSet.size > 0 && unreadCount > 0 && (
+              <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--y-dim)', marginLeft: 8 }}>{unreadCount} unread</span>
+            )}
             {isComick && (
               <span style={{ background: 'var(--y-aa)', color: 'var(--y-a)', fontSize: 9, fontWeight: 800, borderRadius: 6, padding: '2px 6px', marginLeft: 8, textTransform: 'uppercase' }}>Comick</span>
             )}
@@ -259,7 +286,7 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
               padding: '10px 18px', background: 'none', border: 'none', cursor: 'pointer',
               borderTop: '1px solid var(--y-line2)', textAlign: 'left',
             }}>
-              <div style={{ flex: 1 }}>
+              <div style={{ flex: 1, opacity: readSet.has(ch.id) && ch.id !== lastReadChapterId ? 0.45 : 1 }}>
                 <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--y-hi)', marginBottom: 3 }}>Chapter {num}</div>
                 <div style={{ fontSize: 11, fontWeight: 500, color: 'var(--y-dim)' }}>{[chTitle, group, when].filter(Boolean).join(' · ')}</div>
               </div>
@@ -273,17 +300,29 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
         {/* WeebCentral chapters (kakalot-source series + licensed fallback) */}
         {showKkChapters && !isComick && kkChapters.slice(0, chapterLimit).map((ch) => {
           const displayNum = ch.number ?? '?'
+          const isRead = readSet.has(ch.id)
+          const isCurrent = ch.id === lastReadChapterId
           return (
-            <button key={ch.id} onClick={() => onRead(kkMangaId ?? undefined, 'kakalot', ch.id)} style={{
-              width: '100%', minHeight: 60, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              padding: '10px 18px', background: 'none', border: 'none', cursor: 'pointer',
-              borderTop: '1px solid var(--y-line2)', textAlign: 'left',
-            }}>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--y-hi)', marginBottom: 3 }}>Chapter {displayNum}</div>
-                <div style={{ fontSize: 11, fontWeight: 500, color: 'var(--y-dim)' }}>{ch.title ?? 'WeebCentral'}</div>
-              </div>
-            </button>
+            <div key={ch.id} style={{ display: 'flex', alignItems: 'center', borderTop: '1px solid var(--y-line2)' }}>
+              <button onClick={() => onRead(kkMangaId ?? undefined, 'kakalot', ch.id)} style={{
+                flex: 1, minHeight: 60, display: 'flex', alignItems: 'center',
+                padding: '10px 0 10px 18px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left',
+              }}>
+                <div style={{ flex: 1, opacity: isRead && !isCurrent ? 0.45 : 1 }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 700, color: isCurrent ? 'var(--y-plt)' : 'var(--y-hi)', marginBottom: 3 }}>
+                    Chapter {displayNum}
+                    {isCurrent && <span style={{ fontSize: 9, fontWeight: 800, marginLeft: 8, background: 'var(--y-pa)', color: 'var(--y-plt)', borderRadius: 6, padding: '2px 6px', textTransform: 'uppercase' }}>Continue</span>}
+                  </div>
+                  <div style={{ fontSize: 11, fontWeight: 500, color: 'var(--y-dim)' }}>{ch.title ?? 'WeebCentral'}</div>
+                </div>
+              </button>
+              {/* read/unread toggle */}
+              <button onClick={() => void toggleRead(ch.id)} aria-label={isRead ? 'Mark unread' : 'Mark read'} style={{
+                width: 52, minHeight: 60, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: 'none', border: 'none', cursor: 'pointer',
+                color: isRead ? 'var(--y-ok)' : 'var(--y-line)', fontSize: 17, fontWeight: 800,
+              }}>✓</button>
+            </div>
           )
         })}
 
@@ -327,8 +366,8 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
             {isComick
               ? (kkMangaId ? 'Read on WeebCentral' : (kkSearch.isLoading ? 'Finding readable source…' : 'No readable source found'))
               : showKkChapters
-                ? (lastKkChapter ? `Continue · Ch. ${lastKkChapter.number ?? '1'}` : 'Start reading · Ch. 1')
-                : (lastMdChapter ? `Continue · Ch. ${lastMdChapter.attributes.chapter ?? '1'}` : 'Start reading · Ch. 1')
+                ? (continueKk ? `Continue · Ch. ${continueKk.number ?? '?'}` : 'Start reading · Ch. 1')
+                : (continueMd ? `Continue · Ch. ${continueMd.attributes.chapter ?? '?'}` : 'Start reading · Ch. 1')
             }
           </button>
         </div>

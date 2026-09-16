@@ -9,6 +9,7 @@ import { useQuery } from '@tanstack/react-query'
 import { mdGet } from '../../lib/mangadex/client'
 import { useKakalotChapters, useKakalotSearch } from '../../lib/kakalot/queries'
 import { makeProgressSaver, restoreProgress } from './resume'
+import { markChapterRead } from './readTracking'
 import type { ScrollAnchor } from './scrollAnchor'
 import { trackChapterRead } from '../stats/statsRepo'
 import { useWakeLock } from '../settings/useWakeLock'
@@ -207,6 +208,13 @@ export default function ReaderShell({ seriesId, seriesSource, seriesType, startC
       window.removeEventListener('pagehide', flush)
     }
   }, [])
+
+  // Opening a chapter marks it read (comix-style checkmarks in the chapter list).
+  useEffect(() => {
+    if (!restored) return
+    const ref = chapterRefsRef.current[chapterIndex]
+    if (ref) void markChapterRead(seriesId, ref.id)
+  }, [chapterIndex, restored, seriesId])
 
   // Baseline save when NAVIGATING to a different chapter (start of it). Never on the
   // first (restored) chapter — that would overwrite the saved exact position with 0.
