@@ -64,6 +64,19 @@ No novels in any result set. MD side: `originalLanguage` confirmed in responses
 (eleceed=ko, martial peak=zh); feed pagination verified against Martial Peak (3918
 entries, offset 3500 returns 418). Build + oxlint + all 16 self-checks pass.
 
+## Addendum — sparse-MD series + title matching (same day, commit 602f0cf)
+
+Owner hit Omniscient Reader showing 4 chapters. Two more root causes:
+1. MD's ORV entry has exactly 4 readable chapters (rest external/licensed); the fallback
+   only fired at ZERO readable. SeriesDetail now checks WeebCentral for **every** MD
+   series and shows whichever source has more chapters (`kkBetter`).
+2. WC search is strict AND-matching — the MD-derived title "Omniscient Reader's
+   Viewpoint" returned 0 results (WC calls it "Omniscient Reader"). Worker search now
+   ladders: full query → possessives/punctuation stripped → drop trailing words (≤6
+   attempts). Verified matches incl. renamed series: SSS-Class Suicide Hunter → SSS-Class
+   Revival Hunter (152ch), Return of the Mount Hua Sect → Return of the Blossoming Blade
+   (186ch), ORV → 312ch.
+
 **Known gaps carried forward:**
 - Tower of God chapter numbers repeat across seasons ("S1 Chapter 1" / "S2 Chapter 1"
   both parse number=1); list order is correct, but the reader's per-number version
