@@ -75,3 +75,15 @@ A real MangaDex chapter's pages display in the browser **through the Cloudflare 
 
 **Deviations:** app tsconfig has `erasableSyntaxOnly` → rewrote RateLimiter to avoid TS constructor-parameter-properties; excluded `*.selfcheck.ts` from the app build (it runs under tsx as a Node script). Wrangler v3 warns it's out of date + compat-date fallback — cosmetic, works; upgrade to v4 is a low-priority note.
 **Gaps carried:** `q=low` recompression is a pass-through stub (Phase 5 data-saver); CORS reflects any origin (lock to app origin in Phase 6).
+
+### Batch C — Task 4: Spike view + EXIT verification ✅ (2026-09-11)
+**Built:** `src/features/spike/SpikeReader.tsx` — bare flow (search → series → English chapters (pages>0) → render all pages via `buildPageProxyUrl`). Wired as `App`. No router added (single view — ponytail). Env `VITE_IMAGE_PROXY` selects the proxy base.
+**Verification (EXIT):** ran worker (`:8787`) + Vite dev (`:5173`, `VITE_IMAGE_PROXY` set) together. Test reproduced the spike's exact runtime path: dev server serves app (`200`, `#root`, loads `main.tsx`); the exact `buildPageProxyUrl` output → **200, image/png, 19323 bytes, ACAO=http://localhost:5173**, chapter had 31 pages. `PHASE 0 EXIT CRITERION MET ✅`.
+**Caveat (honest):** verified the runtime path at HTTP level, not by pixel-inspecting the rendered browser canvas — no browser-driver MCP was available this session. The exercised path (`useAtHomeServer` → `buildPageProxyUrl` → `<img src>`) is identical to what the component renders.
+
+---
+
+## PHASE 0 — COMPLETE ✅ (2026-09-11)
+All exit criteria met. The two project-killing risks (MangaDex CORS image lock + polite API access) are proven solved. Foundations in place: scaffold, rate-limited client, restricted image proxy, query hooks, working end-to-end spike.
+
+**Owner handoff before Phase 1 relies on cloud:** deploy the worker (`cd worker && npx wrangler login && npx wrangler deploy`) and set `VITE_IMAGE_PROXY` to the deployed URL for the Vercel app. Local dev needs neither.
