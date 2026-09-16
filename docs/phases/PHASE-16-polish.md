@@ -50,6 +50,26 @@ found and fixed three latent bugs:
    restart (`staleTime: Infinity` cached the "not downloaded" verdict) — re-checked
    per mount now.
 
+## Addendum 2 — stability & memory pass (commit 30414a4, worker f3bda1ef)
+
+Owner asked to focus stability + peak optimization. Four real items shipped:
+1. **Flat reader memory:** `content-visibility: auto` + `contain-intrinsic-size: auto
+   600px` on every strip page — offscreen pages skip layout/paint and the browser
+   discards their decoded bitmaps (remembered size prevents scroll jumps). This was
+   the real long-session jank/crash vector: an hour of reading kept 700+ decoded
+   images alive.
+2. **Visible tap-to-retry** placeholder for pages that fail after the silent retry
+   (was a permanent blank gap). Manual retry remounts with a fresh cache-buster.
+3. **`/scrape` img retry:** the cache-busting retry that fixed the MD poisoned-edge
+   incident now also covers WeebCentral/Comizy page images.
+4. **Reader code-split:** ReaderShell (renderers, zoom, resume, HUD — ~28KB) lazy-
+   loads on first open; shelf startup parses less JS; SW runtime cache keeps it
+   offline-capable after first use.
+
+Deliberately skipped: manual DOM windowing of the strip (content-visibility delivers
+the memory win without the scroll-anchor risk; unmount-behind windowing is the
+documented upgrade path if DOM node count ever matters).
+
 Perf: Google Fonts `@import` inside tokens.css was a render-blocking serial chain —
 moved to a parallel `<link>` with preconnects (googleapis/gstatic + the worker origin,
 so the first API/cover request skips DNS+TLS). Title fixed (was "yomu-scaffold").
