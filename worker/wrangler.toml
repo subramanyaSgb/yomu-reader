@@ -1,0 +1,6 @@
+name = "yomu-image-proxy"
+main = "src/index.ts"
+compatibility_date = "2026-09-01"
+
+# Local dev: `npx wrangler dev` serves on http://127.0.0.1:8787
+# Deploy (owner account): `npx wrangler login` then `npx wrangler deploy`

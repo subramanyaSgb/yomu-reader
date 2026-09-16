@@ -7,9 +7,11 @@ Phased plan from empty repo to shipped v1, then v2. Each phase has a goal, scope
 
 ---
 
-## Phase 0 — Foundations & spike the risky path
+## Phase 0 — Foundations & spike the risky path ✅ COMPLETE (2026-09-11)
 
 **Goal:** de-risk the two things that can kill the project: the image proxy and MangaDex etiquette.
+
+> Done. See `docs/phases/PHASE-0-foundations.md` for plan + results. Exit criterion met: real chapter image rendered through the Cloudflare Worker proxy, no CORS errors.
 
 - Scaffold: Vite + React + TS + Tailwind + `vite-plugin-pwa`. Deploy empty shell to Vercel.
 - Build the **Cloudflare Worker image proxy** (host allowlist, CORS, streaming). Deploy.
