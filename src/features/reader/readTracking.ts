@@ -36,5 +36,14 @@ export function useReadSet(seriesId: string | null | undefined) {
     setReadSet(new Set(next))
   }, [seriesId])
 
-  return { readSet, toggle }
+  /** Bulk mark (e.g. "mark read up to chapter 247" in one tap). */
+  const markMany = useCallback(async (chapterIds: string[]) => {
+    if (!seriesId) return
+    const set = new Set(await getReadList(seriesId))
+    chapterIds.forEach(id => set.add(id))
+    await setSetting(key(seriesId), [...set])
+    setReadSet(new Set(set))
+  }, [seriesId])
+
+  return { readSet, toggle, markMany }
 }

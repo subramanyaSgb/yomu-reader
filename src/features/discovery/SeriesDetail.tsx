@@ -102,7 +102,9 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
 
   // Read tracking + real continue point. Keyed by the id the reader uses as seriesId.
   const readSeriesId = (isComick || showKkChapters) ? kkMangaId : id
-  const { readSet, toggle: toggleRead } = useReadSet(readSeriesId)
+  const { readSet, toggle: toggleRead, markMany } = useReadSet(readSeriesId)
+  // Bulk-mark sheet target ("mark read up to chapter X in one tap")
+  const [bulkTarget, setBulkTarget] = useState<{ id: string; number: string | null } | null>(null)
   const [lastReadChapterId, setLastReadChapterId] = useState<string | null>(null)
   useEffect(() => {
     if (!readSeriesId) return
@@ -316,8 +318,11 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
                   <div style={{ fontSize: 11, fontWeight: 500, color: 'var(--y-dim)' }}>{ch.title ?? 'WeebCentral'}</div>
                 </div>
               </button>
-              {/* read/unread toggle */}
-              <button onClick={() => void toggleRead(ch.id)} aria-label={isRead ? 'Mark unread' : 'Mark read'} style={{
+              {/* read/unread toggle: read → unmark directly; unread → sheet offers
+                  "just this one" or "everything up to here" (bulk mark). */}
+              <button
+                onClick={() => { if (isRead) { void toggleRead(ch.id) } else { setBulkTarget({ id: ch.id, number: ch.number }) } }}
+                aria-label={isRead ? 'Mark unread' : 'Mark read'} style={{
                 width: 52, minHeight: 60, display: 'flex', alignItems: 'center', justifyContent: 'center',
                 background: 'none', border: 'none', cursor: 'pointer',
                 color: isRead ? 'var(--y-ok)' : 'var(--y-line)', fontSize: 17, fontWeight: 800,
@@ -346,6 +351,37 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
                 : 'Only English chapters with pages on MangaDex are listed.'}
           </p>
         )}
+
+        {/* Bulk mark-read sheet */}
+        {bulkTarget && (() => {
+          const asc = kkFeed.data?.chapters ?? []
+          const idx = asc.findIndex(c => c.id === bulkTarget.id)
+          const upToCount = idx >= 0 ? asc.slice(0, idx + 1).filter(c => !readSet.has(c.id)).length : 0
+          return (
+            <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'flex-end', background: 'rgba(0,0,0,0.6)' }} onClick={() => setBulkTarget(null)}>
+              <div style={{ width: '100%', borderRadius: '20px 20px 0 0', background: 'var(--y-surf)', border: '1px solid var(--y-line)', padding: '20px 18px 30px' }} onClick={e => e.stopPropagation()}>
+                <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--y-hi)', marginBottom: 16 }}>Chapter {bulkTarget.number ?? '?'}</div>
+                <button
+                  onClick={() => { void toggleRead(bulkTarget.id); setBulkTarget(null) }}
+                  style={{ width: '100%', height: 48, borderRadius: 12, border: '1px solid var(--y-line)', background: 'var(--y-surf2)', color: 'var(--y-hi)', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', marginBottom: 10 }}>
+                  Mark this chapter read
+                </button>
+                {idx > 0 && (
+                  <button
+                    onClick={() => { void markMany(asc.slice(0, idx + 1).map(c => c.id)); setBulkTarget(null) }}
+                    style={{ width: '100%', height: 48, borderRadius: 12, border: 'none', background: 'var(--y-p)', color: 'var(--y-onp)', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', marginBottom: 10 }}>
+                    Mark read up to here ({upToCount} chapters)
+                  </button>
+                )}
+                <button
+                  onClick={() => setBulkTarget(null)}
+                  style={{ width: '100%', height: 44, borderRadius: 12, border: 'none', background: 'none', color: 'var(--y-dim)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )
+        })()}
 
         {/* Sticky CTA */}
         <div style={{ position: 'sticky', bottom: 0, padding: '0 18px 20px', background: 'linear-gradient(to top, var(--y-bg) 45%, transparent)', zIndex: 3 }}>
