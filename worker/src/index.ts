@@ -252,6 +252,7 @@ export default {
       url.searchParams.forEach((v, k) => mdUrl.searchParams.append(k, v))
 
       const upstream = await fetch(mdUrl.toString(), {
+        headers: { 'User-Agent': 'YomuReader/1.0 (personal manga PWA)' },
         cf: { cacheTtl: 60, cacheEverything: true },
       })
       const headers = new Headers(corsHeaders(origin))
