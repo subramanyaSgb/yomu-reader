@@ -12,7 +12,7 @@ import {
   type SortKey,
 } from './libraryLogic'
 
-export default function LibraryScreen({ onOpen }: { onOpen: (id: string) => void }) {
+export default function LibraryScreen({ onOpen }: { onOpen: (id: string, source?: 'mangadex' | 'kakalot') => void }) {
   const [entries, setEntries] = useState<LibraryEntry[]>([])
   const [shelf, setShelf] = useState<Shelf>('reading')
   const [sort, setSort] = useState<SortKey>('recent')

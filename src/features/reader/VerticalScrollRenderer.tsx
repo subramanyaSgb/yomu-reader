@@ -10,6 +10,7 @@ import ZoomableImage from './zoom/ZoomableImage'
 export interface ChapterRef {
   id: string
   number: string | null
+  source?: 'mangadex' | 'kakalot'
 }
 
 interface Props {
@@ -22,8 +23,8 @@ interface Props {
 }
 
 // One chapter's images stacked; reports its images as loaded so the parent can measure.
-function ChapterPages({ chapterId }: { chapterId: string }) {
-  const { pages, isLoading, isError } = useChapterPages(chapterId)
+function ChapterPages({ chapterId, source }: { chapterId: string; source?: 'mangadex' | 'kakalot' }) {
+  const { pages, isLoading, isError } = useChapterPages(chapterId, 'source', source ?? 'mangadex')
   if (isLoading) return <div className="py-8 text-center text-neutral-500">Loading…</div>
   if (isError) return <div className="py-8 text-center text-red-400">Failed. Retry.</div>
   return (
@@ -114,7 +115,7 @@ export default function VerticalScrollRenderer({
                 Ch. {ch.number ?? '?'}
               </div>
             )}
-            <ChapterPages chapterId={ch.id} />
+            <ChapterPages chapterId={ch.id} source={ch.source} />
           </section>
         )
       })}

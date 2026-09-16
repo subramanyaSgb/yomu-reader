@@ -1,0 +1,1573 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap">
+<style>
+  body { margin: 0; background: #0B0D0C; }
+  a { color: #3ED6A0; text-decoration: none; }
+  a:hover { color: #F2C14E; }
+  * { -webkit-tap-highlight-color: transparent; }
+  .yo-scroll { overflow-y: auto; scrollbar-width: none; }
+  .yo-scroll::-webkit-scrollbar { width: 0; height: 0; }
+  .yo-x { overflow-x: auto; scrollbar-width: none; }
+  .yo-x::-webkit-scrollbar { height: 0; }
+</style>
+</helmet>
+<div style="min-height: 100vh; background: #0B0D0C; font-family: Outfit, sans-serif; display: flex; flex-direction: column; align-items: center; gap: 18px; padding: 36px 20px 60px; box-sizing: border-box;">
+  <div style="display: flex; align-items: center; gap: 12px; width: 390px;">
+    <div style="display: flex; align-items: baseline; gap: 5px;">
+      <span style="font-size: 19px; font-weight: 800; letter-spacing: -0.02em; color: #F2F7F4;">YOMU</span>
+      <span style="width: 5px; height: 5px; background: #F2C14E; border-radius: 50%;"></span>
+    </div>
+    <span style="flex: 1; font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: #6C7A74;">{{ screenLabel }}</span>
+    <div onClick="{{ toggleOffline }}" style="font-size: 10.5px; font-weight: 700; padding: 6px 10px; border-radius: 8px; cursor: pointer; color: {{ offlineChipFg }}; border: 1px solid {{ offlineChipBd }};">{{ offlineChipLabel }}</div>
+    <div onClick="{{ reset }}" style="font-size: 10.5px; font-weight: 700; color: #6C7A74; padding: 6px 10px; border: 1px solid #242C28; border-radius: 8px; cursor: pointer;" style-hover="color: #F2C14E; border-color: #F2C14E;">Reset</div>
+  </div>
+
+  <div style="width: 390px; height: 844px; border-radius: 30px; overflow: hidden; position: relative; box-shadow: 0 40px 90px rgba(0,0,0,0.65); outline: 1px solid #1E2622; background: var(--y-bg, #0A0E0C); color: var(--y-text, #D8E3DD); --y-bg: {{ c.bg }}; --y-surf: {{ c.surf }}; --y-surf2: {{ c.surf2 }}; --y-line: {{ c.line }}; --y-line2: {{ c.line2 }}; --y-hi: {{ c.hi }}; --y-text: {{ c.text }}; --y-mid: {{ c.mid }}; --y-dim: {{ c.dim }}; --y-p: {{ c.p }}; --y-plt: {{ c.plt }}; --y-a: {{ c.a }}; --y-ok: {{ c.ok }}; --y-warn: {{ c.warn }}; --y-black: {{ c.black }}; --y-pa: {{ c.pa }}; --y-aa: {{ c.aa }}; --y-ov: {{ c.ov }}; --y-ov2: {{ c.ov2 }}; --y-onp: {{ c.onp }};">
+
+    <!-- ============ HOME ============ -->
+    <sc-if value="{{ isHome }}" hint-placeholder-val="{{ true }}">
+      <div style="position: absolute; inset: 0; display: flex; flex-direction: column;">
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 16px 18px 8px; flex: 0 0 auto;">
+          <div style="display: flex; align-items: baseline; gap: 5px;">
+            <span style="font-size: 20px; font-weight: 800; letter-spacing: -0.02em; color: var(--y-hi, #F2F7F4);">YOMU</span>
+            <span style="width: 5px; height: 5px; background: var(--y-a, #F2C14E); border-radius: 50%;"></span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 4px;">
+            <div onClick="{{ goUnread }}" style="position: relative; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="width: 20px; height: 20px; color: var(--y-text, #D8E3DD);"><path d="M12 3a6 6 0 0 0-6 6c0 5-2 6-2 6h16s-2-1-2-6a6 6 0 0 0-6-6zM10 21h4"></path></svg>
+              <span style="position: absolute; top: 7px; right: 7px; min-width: 16px; height: 16px; border-radius: 8px; background: var(--y-a, #F2C14E); color: var(--y-onp, #05100B); font-size: 9px; font-weight: 800; display: flex; align-items: center; justify-content: center; padding: 0 4px; box-sizing: border-box;">{{ unreadTotal }}</span>
+            </div>
+            <div onClick="{{ goSearch }}" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="width: 21px; height: 21px; color: var(--y-text, #D8E3DD);"><path d="M11 3a8 8 0 1 0 0 16 8 8 0 0 0 0-16zM21 21l-4.4-4.4"></path></svg>
+            </div>
+            <div onClick="{{ goProfile }}" style="width: 34px; height: 34px; border-radius: 50%; background-image: {{ avatarBg }}; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800; color: #FFFFFF; cursor: pointer;">{{ initial }}</div>
+          </div>
+        </div>
+
+        <div class="yo-scroll" style="flex: 1; min-height: 0;">
+          <div style="position: relative; height: 268px;">
+            <div style="position: absolute; inset: 0; background: var(--y-surf2, #111713); background-image: {{ hero.bg }};"></div>
+            <div style="position: absolute; inset: 0; background: linear-gradient(to top, var(--y-bg, #0A0E0C) 3%, var(--y-ov, rgba(10,14,12,0.55)) 40%, transparent 76%);"></div>
+            <div style="position: absolute; left: 18px; right: 18px; bottom: 16px;">
+              <div style="display: flex; gap: 6px; margin-bottom: 10px;">
+                <span style="font-size: 10px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--y-a, #F2C14E); background: var(--y-aa, rgba(242,193,78,0.16)); padding: 5px 8px; border-radius: 6px;">Popular now</span>
+                <span style="font-size: 10px; font-weight: 700; letter-spacing: 0.06em; color: var(--y-hi, #F2F7F4); background: var(--y-ov2, rgba(10,14,12,0.5)); padding: 5px 8px; border-radius: 6px;">{{ hero.type }} · EN</span>
+              </div>
+              <div style="font-size: 28px; line-height: 1.05; font-weight: 800; letter-spacing: -0.03em; color: var(--y-hi, #F2F7F4); margin-bottom: 5px;">{{ hero.name }}</div>
+              <div style="font-size: 12px; color: var(--y-mid, #93A29B); font-weight: 500; margin-bottom: 13px;">{{ hero.meta }}</div>
+              <div style="display: flex; gap: 10px; align-items: center;">
+                <div onClick="{{ hero.read }}" style="height: 46px; padding: 0 20px; border-radius: 12px; background: var(--y-p, #17B57E); display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 800; color: var(--y-onp, #05100B); cursor: pointer;" style-hover="filter: brightness(1.08);">
+                  <svg viewBox="0 0 24 24" fill="currentColor" style="width: 13px; height: 13px;"><path d="M6 4l14 8-14 8z"></path></svg>{{ hero.cta }}
+                </div>
+                <div onClick="{{ hero.open }}" style="height: 46px; padding: 0 18px; border-radius: 12px; background: var(--y-ov2, rgba(10,14,12,0.5)); border: 1px solid var(--y-line, #242C28); display: flex; align-items: center; font-size: 13px; font-weight: 700; color: var(--y-hi, #F2F7F4); cursor: pointer;">Details</div>
+              </div>
+            </div>
+          </div>
+
+          <sc-for list="{{ rows }}" as="row" hint-placeholder-count="4">
+            <div style="padding: 16px 0 4px;">
+              <div style="display: flex; align-items: baseline; justify-content: space-between; padding: 0 18px 4px;">
+                <span style="font-size: 16px; font-weight: 700; letter-spacing: -0.01em; color: var(--y-hi, #F2F7F4);">{{ row.title }}</span>
+                <span onClick="{{ row.all }}" style="font-size: 11px; font-weight: 700; color: var(--y-dim, #71807A); cursor: pointer;">See all</span>
+              </div>
+              <div style="font-size: 10.5px; font-weight: 600; color: var(--y-dim, #71807A); padding: 0 18px 10px;">{{ row.note }}</div>
+              <div class="yo-x" style="display: flex; gap: 12px; padding: 0 18px 2px;">
+                <sc-for list="{{ row.items }}" as="it" hint-placeholder-count="4">
+                  <div onClick="{{ it.tap }}" style="width: 110px; flex: 0 0 110px; cursor: pointer;">
+                    <div style="position: relative; height: 152px; border-radius: 14px; overflow: hidden; background: var(--y-surf2, #111713); background-image: {{ it.bg }};">
+                      <sc-if value="{{ it.unread }}" hint-placeholder-val="{{ false }}">
+                        <span style="position: absolute; top: 7px; right: 7px; min-width: 18px; height: 18px; border-radius: 9px; background: var(--y-a, #F2C14E); color: var(--y-onp, #05100B); font-size: 9.5px; font-weight: 800; display: flex; align-items: center; justify-content: center; padding: 0 5px; box-sizing: border-box;">{{ it.unread }}</span>
+                      </sc-if>
+                      <sc-if value="{{ it.offlineOk }}" hint-placeholder-val="{{ false }}">
+                        <span style="position: absolute; top: 7px; left: 7px; width: 18px; height: 18px; border-radius: 5px; background: rgba(0,0,0,0.55); display: flex; align-items: center; justify-content: center;">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="var(--y-ok, #6FC3FF)" stroke-width="2.4" stroke-linecap="round" style="width: 11px; height: 11px;"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 20h16"></path></svg>
+                        </span>
+                      </sc-if>
+                      <span style="position: absolute; bottom: 7px; left: 7px; font-size: 9px; font-weight: 700; color: #FFFFFF; background: rgba(0,0,0,0.6); padding: 4px 6px; border-radius: 5px;">{{ it.badge }}</span>
+                      <sc-if value="{{ it.pct }}" hint-placeholder-val="{{ false }}">
+                        <div style="position: absolute; bottom: 0; left: 0; right: 0; height: 3px; background: rgba(255,255,255,0.2);">
+                          <div style="height: 3px; background: var(--y-a, #F2C14E); width: {{ it.pct }};"></div>
+                        </div>
+                      </sc-if>
+                    </div>
+                    <div style="font-size: 12px; font-weight: 600; color: var(--y-text, #D8E3DD); margin-top: 8px; line-height: 1.25;">{{ it.name }}</div>
+                    <div style="font-size: 10px; font-weight: 500; color: var(--y-dim, #71807A); margin-top: 2px;">{{ it.sub }}</div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-for>
+          <div style="padding: 22px 18px 0; font-size: 10.5px; font-weight: 500; color: var(--y-dim, #71807A); line-height: 1.6;">Metadata and chapters from MangaDex · English only. Personal-use client.</div>
+          <div style="height: 96px;"></div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ============ SEARCH ============ -->
+    <sc-if value="{{ isSearch }}" hint-placeholder-val="{{ false }}">
+      <div style="position: absolute; inset: 0; display: flex; flex-direction: column;">
+        <div style="padding: 18px 18px 10px; flex: 0 0 auto;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+            <span style="font-size: 25px; font-weight: 800; letter-spacing: -0.03em; color: var(--y-hi, #F2F7F4);">Search</span>
+            <div onClick="{{ toggleScope }}" style="display: flex; background: var(--y-surf, #141A17); border: 1px solid var(--y-line, #242C28); border-radius: 10px; padding: 3px; cursor: pointer;">
+              <span style="font-size: 11px; font-weight: 700; padding: 6px 10px; border-radius: 7px; background: {{ scopeGlobalBg }}; color: {{ scopeGlobalFg }};">Global</span>
+              <span style="font-size: 11px; font-weight: 700; padding: 6px 10px; border-radius: 7px; background: {{ scopeLibBg }}; color: {{ scopeLibFg }};">Library</span>
+            </div>
+          </div>
+          <div style="height: 50px; border-radius: 14px; background: var(--y-surf, #141A17); border: 1px solid var(--y-line, #242C28); display: flex; align-items: center; gap: 10px; padding: 0 14px;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="width: 18px; height: 18px; color: var(--y-dim, #71807A);"><path d="M11 3a8 8 0 1 0 0 16 8 8 0 0 0 0-16zM21 21l-4.4-4.4"></path></svg>
+            <input value="{{ query }}" onChange="{{ setQuery }}" placeholder="{{ searchPlaceholder }}" style="flex: 1; min-width: 0; background: transparent; border: none; outline: none; font-family: Outfit, sans-serif; font-size: 14px; font-weight: 600; color: var(--y-hi, #F2F7F4);">
+            <sc-if value="{{ hasQuery }}" hint-placeholder-val="{{ false }}">
+              <div onClick="{{ saveSearch }}" style="font-size: 10px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--y-plt, #3ED6A0); cursor: pointer; padding: 0 4px;">Save</div>
+            </sc-if>
+            <sc-if value="{{ hasQuery }}" hint-placeholder-val="{{ false }}">
+              <div onClick="{{ clearQuery }}" style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="width: 14px; height: 14px; color: var(--y-dim, #71807A);"><path d="M6 6l12 12M18 6 6 18"></path></svg>
+              </div>
+            </sc-if>
+          </div>
+        </div>
+        <div class="yo-x" style="display: flex; gap: 8px; padding: 4px 18px 12px; flex: 0 0 auto;">
+          <sc-for list="{{ filters }}" as="f" hint-placeholder-count="6">
+            <span onClick="{{ f.tap }}" style="flex: 0 0 auto; height: 34px; display: flex; align-items: center; padding: 0 13px; border-radius: 10px; font-size: 11.5px; font-weight: 700; cursor: pointer; background: {{ f.bg }}; color: {{ f.fg }}; border: 1px solid {{ f.bd }};">{{ f.label }}</span>
+          </sc-for>
+        </div>
+        <div class="yo-scroll" style="flex: 1; min-height: 0; padding: 0 18px;">
+          <sc-if value="{{ mdUnreachable }}" hint-placeholder-val="{{ false }}">
+            <div style="border: 1px solid var(--y-line, #242C28); background: var(--y-surf, #141A17); border-radius: 16px; padding: 20px;">
+              <div style="display: flex; align-items: center; gap: 9px; margin-bottom: 8px;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="var(--y-warn, #E4804A)" stroke-width="2" stroke-linecap="round" style="width: 17px; height: 17px;"><path d="M12 4a8 8 0 1 0 0 16 8 8 0 0 0 0-16zM12 8v5M12 16.5h.01"></path></svg>
+                <span style="font-size: 14px; font-weight: 800; color: var(--y-hi, #F2F7F4);">MangaDex unreachable</span>
+              </div>
+              <div style="font-size: 12px; font-weight: 500; color: var(--y-mid, #93A29B); line-height: 1.55; margin-bottom: 14px;">You are offline, so global search is unavailable. Your library and downloaded chapters still work.</div>
+              <div style="display: flex; gap: 8px;">
+                <div onClick="{{ retry }}" style="height: 42px; padding: 0 16px; border-radius: 11px; background: var(--y-p, #17B57E); color: var(--y-onp, #05100B); font-size: 12.5px; font-weight: 800; display: flex; align-items: center; cursor: pointer;">Retry</div>
+                <div onClick="{{ searchLibrary }}" style="height: 42px; padding: 0 16px; border-radius: 11px; border: 1px solid var(--y-line, #242C28); font-size: 12.5px; font-weight: 700; color: var(--y-text, #D8E3DD); display: flex; align-items: center; cursor: pointer;">Search my library</div>
+              </div>
+            </div>
+          </sc-if>
+          <sc-if value="{{ showResults }}" hint-placeholder-val="{{ true }}">
+            <div>
+              <div style="font-size: 12px; font-weight: 600; color: var(--y-dim, #71807A); margin-bottom: 12px;">{{ resultCount }}</div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px 14px;">
+                <sc-for list="{{ results }}" as="it" hint-placeholder-count="6">
+                  <div onClick="{{ it.tap }}" style="cursor: pointer;">
+                    <div style="position: relative; height: 216px; border-radius: 16px; overflow: hidden; background: var(--y-surf2, #111713); background-image: {{ it.bg }};">
+                      <span style="position: absolute; bottom: 8px; left: 8px; font-size: 9px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--y-onp, #05100B); background: var(--y-p, #17B57E); padding: 4px 6px; border-radius: 5px;">{{ it.type }}</span>
+                      <sc-if value="{{ it.inLib }}" hint-placeholder-val="{{ false }}">
+                        <span style="position: absolute; top: 8px; right: 8px; font-size: 9px; font-weight: 800; color: #FFFFFF; background: rgba(0,0,0,0.6); padding: 4px 6px; border-radius: 5px;">IN LIBRARY</span>
+                      </sc-if>
+                    </div>
+                    <div style="font-size: 13px; font-weight: 700; color: var(--y-hi, #F2F7F4); margin-top: 9px; line-height: 1.2;">{{ it.name }}</div>
+                    <div style="font-size: 11px; font-weight: 500; color: var(--y-dim, #71807A); margin-top: 3px;">{{ it.sub }}</div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-if>
+          <sc-if value="{{ showRecents }}" hint-placeholder-val="{{ true }}">
+            <div>
+              <sc-if value="{{ hasSaved }}" hint-placeholder-val="{{ false }}">
+                <div>
+                  <div style="font-size: 14px; font-weight: 700; color: var(--y-hi, #F2F7F4); margin: 22px 0 6px;">Saved searches</div>
+                  <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 4px;">
+                    <sc-for list="{{ saved }}" as="s" hint-placeholder-count="2">
+                      <span onClick="{{ s.tap }}" style="font-size: 11.5px; font-weight: 700; color: var(--y-plt, #3ED6A0); background: var(--y-pa, rgba(23,181,126,0.16)); border: 1px solid var(--y-line, #242C28); padding: 8px 11px; border-radius: 9px; cursor: pointer;">{{ s.label }}</span>
+                    </sc-for>
+                  </div>
+                </div>
+              </sc-if>
+              <div style="display: flex; align-items: baseline; justify-content: space-between; margin: 22px 0 4px;">
+                <span style="font-size: 14px; font-weight: 700; color: var(--y-hi, #F2F7F4);">Recent searches</span>
+                <span onClick="{{ clearRecents }}" style="font-size: 11px; font-weight: 700; color: var(--y-a, #F2C14E); cursor: pointer;">Clear</span>
+              </div>
+              <sc-for list="{{ recents }}" as="r" hint-placeholder-count="3">
+                <div style="display: flex; align-items: center; gap: 12px; height: 48px;">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" style="width: 16px; height: 16px; color: var(--y-dim, #71807A);"><path d="M12 4a8 8 0 1 0 0 16 8 8 0 0 0 0-16zM12 8v4l3 2"></path></svg>
+                  <span onClick="{{ r.tap }}" style="flex: 1; font-size: 13px; font-weight: 600; color: var(--y-text, #D8E3DD); cursor: pointer;">{{ r.label }}</span>
+                  <div onClick="{{ r.remove }}" style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="width: 13px; height: 13px; color: var(--y-dim, #71807A);"><path d="M6 6l12 12M18 6 6 18"></path></svg>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+          <div style="height: 96px;"></div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ============ SERIES DETAIL ============ -->
+    <sc-if value="{{ isDetail }}" hint-placeholder-val="{{ false }}">
+      <div style="position: absolute; inset: 0;">
+        <div style="position: absolute; top: 0; left: 0; right: 0; height: 340px; background-image: {{ series.bg }}; filter: blur(28px); transform: scale(1.2);"></div>
+        <div style="position: absolute; top: 0; left: 0; right: 0; height: 340px; background: linear-gradient(to top, var(--y-bg, #0A0E0C) 5%, var(--y-ov, rgba(10,14,12,0.55)) 55%, var(--y-ov2, rgba(10,14,12,0.3)) 100%);"></div>
+        <div style="position: absolute; inset: 0; display: flex; flex-direction: column;">
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: 14px 14px 0; flex: 0 0 auto;">
+            <div onClick="{{ back }}" style="width: 44px; height: 44px; border-radius: 12px; background: var(--y-ov2, rgba(10,14,12,0.5)); display: flex; align-items: center; justify-content: center; cursor: pointer;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="width: 18px; height: 18px; color: var(--y-hi, #F2F7F4);"><path d="M15 5l-7 7 7 7"></path></svg>
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <div onClick="{{ toggleNotify }}" style="width: 44px; height: 44px; border-radius: 12px; background: var(--y-ov2, rgba(10,14,12,0.5)); display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                <svg viewBox="0 0 24 24" fill="{{ notifyFill }}" stroke="{{ notifyStroke }}" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="width: 18px; height: 18px;"><path d="M12 3a6 6 0 0 0-6 6c0 5-2 6-2 6h16s-2-1-2-6a6 6 0 0 0-6-6zM10 21h4"></path></svg>
+              </div>
+              <div onClick="{{ openDownloadSheet }}" style="width: 44px; height: 44px; border-radius: 12px; background: var(--y-ov2, rgba(10,14,12,0.5)); display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="width: 18px; height: 18px; color: var(--y-hi, #F2F7F4);"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 20h16"></path></svg>
+              </div>
+            </div>
+          </div>
+          <div style="flex: 1; min-height: 0; display: flex; flex-direction: column;">
+            <div style="display: flex; gap: 14px; padding: 10px 18px 0; flex: 0 0 auto;">
+              <div style="width: 112px; height: 158px; flex: 0 0 112px; border-radius: 14px; background-image: {{ series.bg }}; box-shadow: 0 16px 34px rgba(0,0,0,0.5);"></div>
+              <div style="padding-top: 2px; min-width: 0;">
+                <div style="font-size: 20px; font-weight: 800; letter-spacing: -0.03em; line-height: 1.1; color: var(--y-hi, #F2F7F4);">{{ series.name }}</div>
+                <div style="font-size: 11.5px; font-weight: 500; color: var(--y-mid, #93A29B); margin: 5px 0 9px;">{{ series.author }} · {{ series.type }}</div>
+                <div style="display: flex; align-items: center; gap: 7px; flex-wrap: wrap; margin-bottom: 9px;">
+                  <span style="font-size: 10px; font-weight: 800; letter-spacing: 0.07em; text-transform: uppercase; color: var(--y-onp, #05100B); background: var(--y-ok, #6FC3FF); padding: 4px 7px; border-radius: 5px;">{{ series.status }}</span>
+                  <span style="font-size: 11px; font-weight: 700; color: var(--y-text, #D8E3DD);">{{ series.enCount }} EN ch</span>
+                  <sc-if value="{{ unreadHere }}" hint-placeholder-val="{{ false }}">
+                    <span style="font-size: 10px; font-weight: 800; color: var(--y-onp, #05100B); background: var(--y-a, #F2C14E); padding: 4px 7px; border-radius: 5px;">{{ unreadHere }} new</span>
+                  </sc-if>
+                </div>
+                <div style="display: flex; align-items: center; gap: 5px;">
+                  <svg viewBox="0 0 24 24" fill="currentColor" style="width: 14px; height: 14px; color: var(--y-a, #F2C14E);"><path d="m12 2 3 6.6 7 .8-5 4.8 1.3 7L12 17.8 5.7 21.2 7 14.2 2 9.4l7-.8z"></path></svg>
+                  <span style="font-size: 13px; font-weight: 700; color: var(--y-hi, #F2F7F4);">{{ series.rating }}</span>
+                  <span style="font-size: 10.5px; font-weight: 500; color: var(--y-dim, #71807A);">· {{ series.votes }} · {{ series.group }}</span>
+                </div>
+              </div>
+            </div>
+            <div class="yo-x" style="display: flex; gap: 7px; padding: 14px 18px 0; flex: 0 0 auto;">
+              <sc-for list="{{ series.genres }}" as="g" hint-placeholder-count="4">
+                <span style="flex: 0 0 auto; font-size: 11px; font-weight: 700; color: var(--y-plt, #3ED6A0); background: var(--y-pa, rgba(23,181,126,0.16)); border: 1px solid var(--y-line, #242C28); padding: 6px 11px; border-radius: 8px;">{{ g }}</span>
+              </sc-for>
+            </div>
+            <div style="display: flex; gap: 9px; padding: 14px 18px 0; flex: 0 0 auto;">
+              <div onClick="{{ toggleFollow }}" style="flex: 1.2; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; gap: 7px; font-size: 12.5px; font-weight: 800; cursor: pointer; background: {{ followBg }}; color: {{ followFg }}; border: 1px solid var(--y-line, #242C28);">{{ followLabel }}</div>
+              <div onClick="{{ openShelfSheet }}" style="flex: 1; height: 44px; border-radius: 12px; background: var(--y-surf, #141A17); border: 1px solid var(--y-line, #242C28); display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--y-text, #D8E3DD); cursor: pointer;">{{ shelfLabel }}</div>
+              <div onClick="{{ openVersionSheet }}" style="width: 44px; height: 44px; border-radius: 12px; background: var(--y-surf, #141A17); border: 1px solid var(--y-line, #242C28); display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="width: 17px; height: 17px; color: var(--y-text, #D8E3DD);"><path d="M4 7h10M4 7l3-3M4 7l3 3M20 17H10m10 0-3-3m3 3-3 3"></path></svg>
+              </div>
+            </div>
+            <div onClick="{{ toggleSyn }}" style="padding: 14px 18px 0; cursor: pointer; flex: 0 0 auto;">
+              <div style="font-size: 12.5px; line-height: 1.58; color: var(--y-mid, #93A29B);">{{ synText }} <span style="color: var(--y-a, #F2C14E); font-weight: 700;">{{ synToggle }}</span></div>
+            </div>
+            <sc-if value="{{ series.licensed }}" hint-placeholder-val="{{ false }}">
+              <div style="padding: 12px 18px 0; flex: 0 0 auto;">
+                <div style="display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 10px; border: 1px dashed var(--y-line, #242C28);">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="var(--y-ok, #6FC3FF)" stroke-width="1.9" stroke-linecap="round" style="width: 15px; height: 15px;"><path d="M4 5h11a2 2 0 0 1 2 2v12H6a2 2 0 0 1-2-2z"></path></svg>
+                  <span style="flex: 1; font-size: 11px; font-weight: 600; color: var(--y-mid, #93A29B);">Licensed in English</span>
+                  <span onClick="{{ officialLink }}" style="font-size: 11px; font-weight: 800; color: var(--y-plt, #3ED6A0); cursor: pointer;">Support official release</span>
+                </div>
+              </div>
+            </sc-if>
+            <div style="flex: 1; min-height: 0; display: flex; flex-direction: column; margin-top: 16px; border-top: 1px solid var(--y-line, #242C28);">
+              <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 18px 10px; flex: 0 0 auto;">
+                <span style="font-size: 14.5px; font-weight: 800; color: var(--y-hi, #F2F7F4);">Chapters <span style="color: var(--y-dim, #71807A); font-weight: 600;">{{ series.enCount }} EN</span></span>
+                <span onClick="{{ toggleOrder }}" style="font-size: 11px; font-weight: 700; color: var(--y-dim, #71807A); cursor: pointer;">{{ orderLabel }}</span>
+              </div>
+              <div class="yo-scroll" style="flex: 1; min-height: 0; overscroll-behavior: contain;">
+                <sc-for list="{{ chapters }}" as="ch" hint-placeholder-count="6">
+                  <div style="display: flex; align-items: center; gap: 10px; min-height: 60px; padding: 0 18px; border-top: 1px solid var(--y-line2, #1A211D); background: {{ ch.rowBg }};">
+                    <div onClick="{{ ch.read }}" style="flex: 1; min-width: 0; padding: 9px 0; cursor: pointer;">
+                      <div style="display: flex; align-items: center; gap: 7px;">
+                        <span style="font-size: 13.5px; font-weight: 700; color: {{ ch.titleColor }};">{{ ch.label }}</span>
+                        <sc-if value="{{ ch.fresh }}" hint-placeholder-val="{{ false }}">
+                          <span style="font-size: 9px; font-weight: 800; letter-spacing: 0.06em; color: var(--y-a, #F2C14E); background: var(--y-aa, rgba(242,193,78,0.16)); padding: 3px 5px; border-radius: 4px;">NEW</span>
+                        </sc-if>
+                        <sc-if value="{{ ch.current }}" hint-placeholder-val="{{ false }}">
+                          <span style="font-size: 9px; font-weight: 800; letter-spacing: 0.06em; color: var(--y-onp, #05100B); background: var(--y-p, #17B57E); padding: 3px 5px; border-radius: 4px;">RESUME</span>
+                        </sc-if>
+                        <sc-if value="{{ ch.blocked }}" hint-placeholder-val="{{ false }}">
+                          <span style="font-size: 9px; font-weight: 800; letter-spacing: 0.06em; color: var(--y-warn, #E4804A); border: 1px solid var(--y-warn, #E4804A); padding: 2px 5px; border-radius: 4px;">OFFLINE</span>
+                        </sc-if>
+                      </div>
+                      <div style="font-size: 11px; font-weight: 500; color: var(--y-dim, #71807A); margin-top: 3px;">{{ ch.sub }}</div>
+                    </div>
+                    <div onClick="{{ ch.download }}" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="{{ ch.dlColor }}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 17px; height: 17px;"><path d="{{ ch.dlIcon }}"></path></svg>
+                    </div>
+                  </div>
+                </sc-for>
+                <div style="padding: 14px 18px 0; font-size: 10.5px; font-weight: 500; color: var(--y-dim, #71807A); line-height: 1.55;">{{ gapNote }}</div>
+                <div style="height: 92px;"></div>
+              </div>
+            </div>
+          </div>
+          <div style="position: absolute; bottom: 0; left: 0; right: 0; padding: 14px 18px 20px; background: linear-gradient(to top, var(--y-bg, #0A0E0C) 45%, transparent);">
+            <div onClick="{{ startReading }}" style="height: 52px; border-radius: 14px; background: var(--y-p, #17B57E); display: flex; align-items: center; justify-content: center; gap: 9px; font-size: 15px; font-weight: 800; color: var(--y-onp, #05100B); cursor: pointer;" style-hover="filter: brightness(1.08);">
+              <svg viewBox="0 0 24 24" fill="currentColor" style="width: 13px; height: 13px;"><path d="M6 4l14 8-14 8z"></path></svg>{{ ctaLabel }}
+            </div>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ============ PAGED READER ============ -->
+    <sc-if value="{{ isPaged }}" hint-placeholder-val="{{ false }}">
+      <div style="position: absolute; inset: 0; background: {{ gapColor }}; overflow: hidden;">
+        <div onClick="{{ toggleHud }}" style="position: absolute; inset: 0; cursor: pointer;">
+          <div style="position: absolute; top: 50%; left: 0; right: 0; transform: translateY(-50%); height: 560px; perspective: 1400px;">
+            {{ pageEl }}
+          </div>
+        </div>
+        <div style="position: absolute; inset: 0; background: #000000; opacity: {{ dim }}; pointer-events: none;"></div>
+        <div onClick="{{ nextPage }}" style="position: absolute; top: 50%; left: 14px; transform: translateY(-50%); width: 46px; height: 46px; border-radius: 50%; background: rgba(255,255,255,0.1); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; cursor: pointer; opacity: {{ hudOpacity }};">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" style="width: 18px; height: 18px;"><path d="{{ arrowLeft }}"></path></svg>
+        </div>
+        <div onClick="{{ prevPage }}" style="position: absolute; top: 50%; right: 14px; transform: translateY(-50%); width: 46px; height: 46px; border-radius: 50%; background: rgba(255,255,255,0.1); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; cursor: pointer; opacity: {{ hudOpacity }};">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" style="width: 18px; height: 18px;"><path d="{{ arrowRight }}"></path></svg>
+        </div>
+
+        <div style="position: absolute; top: 0; left: 0; right: 0; height: 58px; display: flex; align-items: center; justify-content: space-between; padding: 0 10px; background: linear-gradient(to bottom, rgba(0,0,0,0.75), transparent); opacity: {{ hudOpacity }}; transition: opacity 220ms ease;">
+          <div onClick="{{ exitReader }}" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" style="width: 18px; height: 18px;"><path d="M15 5l-7 7 7 7"></path></svg>
+          </div>
+          <span style="font-size: 9.5px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(255,255,255,0.55);">{{ curlBadge }}</span>
+          <div style="display: flex;">
+            <div onClick="{{ openVersionSheet }}" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="width: 18px; height: 18px;"><path d="M4 7h10M4 7l3-3M4 7l3 3M20 17H10m10 0-3-3m3 3-3 3"></path></svg>
+            </div>
+            <div onClick="{{ openReaderSettings }}" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="1.9" stroke-linecap="round" style="width: 18px; height: 18px;"><path d="M4 7h16M4 12h16M4 17h16"></path></svg>
+            </div>
+          </div>
+        </div>
+
+        <div style="position: absolute; bottom: 0; left: 0; right: 0; padding: 16px 18px 22px; background: linear-gradient(to top, rgba(0,0,0,0.92) 30%, transparent); opacity: {{ hudOpacity }}; transition: opacity 220ms ease;">
+          <div style="display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 11px;">
+            <div style="min-width: 0;">
+              <div style="font-size: 13.5px; font-weight: 800; color: #FFFFFF;">{{ readerChapter }}</div>
+              <div style="font-size: 10.5px; font-weight: 500; color: rgba(255,255,255,0.55); margin-top: 3px;">{{ readerSeries }} · {{ versionLabel }}</div>
+            </div>
+            <div style="font-size: 13px; font-weight: 800; color: var(--y-a, #F2C14E);">{{ pageNum }} <span style="color: rgba(255,255,255,0.35);">/ {{ pageTotal }}</span></div>
+          </div>
+          <div style="height: 4px; border-radius: 2px; background: rgba(255,255,255,0.16); direction: {{ barDir }};">
+            <div style="height: 4px; border-radius: 2px; background: var(--y-a, #F2C14E); width: {{ pagePct }}; transition: width 200ms ease;"></div>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-top: 12px;">
+            <sc-for list="{{ pagedTools }}" as="t" hint-placeholder-count="5">
+              <div onClick="{{ t.tap }}" style="width: 54px; height: 46px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; cursor: pointer;">
+                <svg viewBox="0 0 24 24" fill="{{ t.fill }}" stroke="rgba(255,255,255,0.75)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="width: 19px; height: 19px;"><path d="{{ t.d }}"></path></svg>
+                <span style="font-size: 8.5px; font-weight: 700; color: rgba(255,255,255,0.5);">{{ t.label }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ============ VERTICAL READER ============ -->
+    <sc-if value="{{ isScroll }}" hint-placeholder-val="{{ false }}">
+      <div style="position: absolute; inset: 0; background: var(--y-black, #050706);">
+        <div class="yo-scroll" onScroll="{{ onReaderScroll }}" ref="{{ scrollRef }}" style="position: absolute; inset: 0;">
+          <sc-for list="{{ panels }}" as="p" hint-placeholder-count="6">
+            <div style="position: relative; width: 390px; background-image: {{ p.bg }}; height: {{ p.h }};">
+              <sc-if value="{{ p.divider }}" hint-placeholder-val="{{ false }}">
+                <div style="position: absolute; left: 0; right: 0; top: 0; height: 54px; background: var(--y-bg, #0A0E0C); display: flex; align-items: center; gap: 10px; padding: 0 18px; box-sizing: border-box;">
+                  <span style="font-size: 11px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--y-plt, #3ED6A0);">{{ p.divider }}</span>
+                  <span style="flex: 1; height: 1px; background: var(--y-line, #242C28);"></span>
+                  <span style="font-size: 10px; font-weight: 600; color: var(--y-dim, #71807A);">loaded seamlessly</span>
+                </div>
+              </sc-if>
+              <sc-if value="{{ p.bubble }}" hint-placeholder-val="{{ false }}">
+                <div onClick="{{ p.zoom }}" style="position: absolute; top: 30px; left: 82px; width: 208px; height: 96px; border-radius: 24px; background: rgba(250,250,250,0.94); box-shadow: 0 10px 30px rgba(0,0,0,0.4); cursor: pointer; display: flex; flex-direction: column; justify-content: center; gap: 8px; padding: 0 22px; box-sizing: border-box;">
+                  <div style="width: 148px; height: 7px; border-radius: 4px; background: #C9C9C9;"></div>
+                  <div style="width: 122px; height: 7px; border-radius: 4px; background: #D6D6D6;"></div>
+                  <div style="width: 90px; height: 7px; border-radius: 4px; background: #DEDEDE;"></div>
+                  <div style="position: absolute; right: -14px; bottom: -14px; width: 40px; height: 40px; border-radius: 50%; background: var(--y-p, #17B57E); border: 2px solid var(--y-black, #050706); display: flex; align-items: center; justify-content: center;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="var(--y-onp, #05100B)" stroke-width="2.3" stroke-linecap="round" style="width: 17px; height: 17px;"><path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4-4M11 8v6M8 11h6"></path></svg>
+                  </div>
+                </div>
+              </sc-if>
+            </div>
+          </sc-for>
+          <div style="padding: 26px 18px 130px; background: var(--y-bg, #0A0E0C); display: flex; flex-direction: column; gap: 10px;">
+            <div style="font-size: 12px; font-weight: 700; color: var(--y-dim, #71807A);">{{ endNote }}</div>
+            <div onClick="{{ exitReader }}" style="height: 46px; border-radius: 12px; border: 1px solid var(--y-line, #242C28); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; color: var(--y-text, #D8E3DD); cursor: pointer;">{{ endCta }}</div>
+          </div>
+        </div>
+        <div style="position: absolute; inset: 0; background: #000000; opacity: {{ dim }}; pointer-events: none;"></div>
+
+        <div style="position: absolute; top: 0; left: 0; right: 0; height: 74px; padding: 12px 10px 0; box-sizing: border-box; display: flex; align-items: center; gap: 8px; background: linear-gradient(to bottom, rgba(0,0,0,0.82), transparent); opacity: {{ topOpacity }}; transition: opacity 260ms ease; pointer-events: {{ topPointer }};">
+          <div onClick="{{ exitReader }}" style="width: 44px; height: 44px; border-radius: 12px; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; cursor: pointer;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" style="width: 18px; height: 18px;"><path d="M15 5l-7 7 7 7"></path></svg>
+          </div>
+          <div style="flex: 1; min-width: 0;">
+            <div style="font-size: 13px; font-weight: 800; color: #FFFFFF; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ readerChapter }}</div>
+            <div style="font-size: 10px; font-weight: 500; color: rgba(255,255,255,0.6);">{{ readerSeries }} · {{ scrollPct }} · {{ versionLabel }}</div>
+          </div>
+          <div onClick="{{ toggleAutoScroll }}" style="width: 44px; height: 44px; border-radius: 12px; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; cursor: pointer;">
+            <svg viewBox="0 0 24 24" fill="{{ autoFill }}" stroke="#FFFFFF" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="width: 18px; height: 18px;"><path d="M12 4v14m0 0 5-5m-5 5-5-5"></path></svg>
+          </div>
+          <div onClick="{{ openReaderSettings }}" style="width: 44px; height: 44px; border-radius: 12px; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; cursor: pointer;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="1.9" stroke-linecap="round" style="width: 18px; height: 18px;"><path d="M4 7h16M4 12h16M4 17h16"></path></svg>
+          </div>
+        </div>
+
+        <sc-if value="{{ autoScroll }}" hint-placeholder-val="{{ false }}">
+          <div style="position: absolute; top: 82px; left: 16px; right: 16px; height: 44px; border-radius: 12px; background: var(--y-ov, rgba(10,14,12,0.9)); border: 1px solid var(--y-line, #242C28); display: flex; align-items: center; gap: 10px; padding: 0 12px; box-sizing: border-box;">
+            <span style="font-size: 11px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--y-plt, #3ED6A0);">Auto-scroll</span>
+            <span style="flex: 1;"></span>
+            <div onClick="{{ slower }}" style="width: 34px; height: 34px; border-radius: 9px; background: var(--y-surf, #141A17); display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 800; color: var(--y-text, #D8E3DD); cursor: pointer;">−</div>
+            <span style="font-size: 12px; font-weight: 700; color: var(--y-hi, #F2F7F4); min-width: 44px; text-align: center;">{{ speedLabel }}</span>
+            <div onClick="{{ faster }}" style="width: 34px; height: 34px; border-radius: 9px; background: var(--y-surf, #141A17); display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 800; color: var(--y-text, #D8E3DD); cursor: pointer;">+</div>
+          </div>
+        </sc-if>
+
+        <div style="position: absolute; right: 0; top: 74px; bottom: 100px; width: 3px; background: rgba(255,255,255,0.08);">
+          <div style="width: 3px; height: 56px; background: var(--y-a, #F2C14E); margin-top: {{ scrollThumb }};"></div>
+        </div>
+
+        <sc-if value="{{ isLocalReading }}" hint-placeholder-val="{{ false }}">
+          <div style="position: absolute; bottom: 18px; left: 16px; right: 16px; height: 58px; border-radius: 18px; background: var(--y-ov, rgba(10,14,12,0.9)); border: 1px solid var(--y-line, #242C28); backdrop-filter: blur(14px); display: flex; align-items: center; padding: 0 16px; box-sizing: border-box; gap: 12px;">
+            <span style="flex: 1; min-width: 0; font-size: 12px; font-weight: 700; color: var(--y-mid, #93A29B); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ localReaderMeta }}</span>
+            <div onClick="{{ exitReader }}" style="height: 40px; padding: 0 14px; border-radius: 11px; background: var(--y-surf, #141A17); display: flex; align-items: center; font-size: 12px; font-weight: 800; color: var(--y-hi, #F2F7F4); cursor: pointer;">Close file</div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ isOnlineReading }}" hint-placeholder-val="{{ true }}">
+          <div style="position: absolute; bottom: 18px; left: 16px; right: 16px; height: 58px; border-radius: 18px; background: var(--y-ov, rgba(10,14,12,0.9)); border: 1px solid var(--y-line, #242C28); backdrop-filter: blur(14px); display: flex; align-items: center;">
+            <div onClick="{{ prevChapter }}" style="flex: 1; height: 56px; display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--y-mid, #93A29B); cursor: pointer;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="width: 15px; height: 15px;"><path d="M15 5l-7 7 7 7"></path></svg>Prev
+            </div>
+            <div style="width: 1px; height: 26px; background: var(--y-line, #242C28);"></div>
+            <div onClick="{{ openChapterList }}" style="flex: 1.1; height: 56px; display: flex; align-items: center; justify-content: center; gap: 7px; font-size: 12px; font-weight: 800; color: var(--y-hi, #F2F7F4); cursor: pointer;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="var(--y-a, #F2C14E)" stroke-width="2" stroke-linecap="round" style="width: 15px; height: 15px;"><path d="M4 6h16M4 12h16M4 18h16"></path></svg>Chapters
+            </div>
+            <div style="width: 1px; height: 26px; background: var(--y-line, #242C28);"></div>
+            <div onClick="{{ nextChapter }}" style="flex: 1; height: 56px; display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--y-mid, #93A29B); cursor: pointer;">Next
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="width: 15px; height: 15px;"><path d="M9 5l7 7-7 7"></path></svg>
+            </div>
+          </div>
+        </sc-if>
+      </div>
+    </sc-if>
+
+    <!-- ============ LIBRARY ============ -->
+    <sc-if value="{{ isLibrary }}" hint-placeholder-val="{{ false }}">
+      <div style="position: absolute; inset: 0; display: flex; flex-direction: column;">
+        <div style="padding: 18px 18px 0; display: flex; align-items: center; justify-content: space-between; flex: 0 0 auto;">
+          <span style="font-size: 25px; font-weight: 800; letter-spacing: -0.03em; color: var(--y-hi, #F2F7F4);">Library</span>
+          <div onClick="{{ cycleSort }}" style="display: flex; align-items: center; gap: 7px; height: 44px; padding: 0 12px; border-radius: 11px; border: 1px solid var(--y-line, #242C28); cursor: pointer;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="width: 15px; height: 15px; color: var(--y-mid, #93A29B);"><path d="M4 6h16M7 12h10M10 18h4"></path></svg>
+            <span style="font-size: 11.5px; font-weight: 700; color: var(--y-text, #D8E3DD);">{{ sortLabel }}</span>
+          </div>
+        </div>
+        <div class="yo-x" style="display: flex; gap: 16px; padding: 12px 18px 0; border-bottom: 1px solid var(--y-line, #242C28); flex: 0 0 auto;">
+          <sc-for list="{{ libTabs }}" as="t" hint-placeholder-count="6">
+            <div onClick="{{ t.tap }}" style="flex: 0 0 auto; padding-bottom: 11px; font-size: 12.5px; font-weight: 700; cursor: pointer; white-space: nowrap; color: {{ t.fg }}; border-bottom: 2px solid {{ t.bd }};">{{ t.label }} <span style="color: var(--y-dim, #71807A); font-weight: 600;">{{ t.count }}</span></div>
+          </sc-for>
+        </div>
+        <div class="yo-scroll" style="flex: 1; min-height: 0; padding: 14px 18px 0;">
+          <sc-if value="{{ dupWarning }}" hint-placeholder-val="{{ false }}">
+            <div style="display: flex; align-items: center; gap: 9px; padding: 11px 12px; border-radius: 12px; background: var(--y-aa, rgba(242,193,78,0.16)); margin-bottom: 14px;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="var(--y-a, #F2C14E)" stroke-width="2" stroke-linecap="round" style="width: 15px; height: 15px;"><path d="M12 4a8 8 0 1 0 0 16 8 8 0 0 0 0-16zM12 8v5M12 16.5h.01"></path></svg>
+              <span style="flex: 1; font-size: 11.5px; font-weight: 600; color: var(--y-hi, #F2F7F4); line-height: 1.4;">{{ dupWarning }}</span>
+              <span onClick="{{ dismissDup }}" style="font-size: 11px; font-weight: 800; color: var(--y-a, #F2C14E); cursor: pointer;">Merge</span>
+            </div>
+          </sc-if>
+          <div style="font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--y-dim, #71807A); margin-bottom: 12px;">Long-press a cover for options</div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 18px 14px;">
+            <sc-for list="{{ libItems }}" as="it" hint-placeholder-count="6">
+              <div onClick="{{ it.tap }}" onContextMenu="{{ it.menu }}" onPointerDown="{{ it.hold }}" onPointerUp="{{ it.release }}" onPointerLeave="{{ it.release }}" style="cursor: pointer;">
+                <div style="position: relative; height: 198px; border-radius: 16px; overflow: hidden; background-image: {{ it.bg }}; outline: {{ it.ring }};">
+                  <span style="position: absolute; top: 8px; left: 8px; font-size: 9px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: #FFFFFF; background: rgba(0,0,0,0.55); padding: 4px 6px; border-radius: 5px;">{{ it.status }}</span>
+                  <sc-if value="{{ it.unread }}" hint-placeholder-val="{{ false }}">
+                    <span style="position: absolute; top: 8px; right: 8px; min-width: 18px; height: 18px; border-radius: 9px; background: var(--y-a, #F2C14E); color: var(--y-onp, #05100B); font-size: 9.5px; font-weight: 800; display: flex; align-items: center; justify-content: center; padding: 0 5px; box-sizing: border-box;">{{ it.unread }}</span>
+                  </sc-if>
+                  <div style="position: absolute; bottom: 0; left: 0; right: 0; padding: 24px 8px 8px; background: linear-gradient(to top, rgba(0,0,0,0.85), transparent);">
+                    <div style="font-size: 9.5px; font-weight: 700; color: #E8EEEA; margin-bottom: 5px;">{{ it.progress }}</div>
+                    <div style="height: 3px; border-radius: 2px; background: rgba(255,255,255,0.22);">
+                      <div style="height: 3px; border-radius: 2px; background: var(--y-p, #17B57E); width: {{ it.pct }};"></div>
+                    </div>
+                  </div>
+                </div>
+                <div style="font-size: 12.5px; font-weight: 700; color: var(--y-hi, #F2F7F4); margin-top: 8px; line-height: 1.25;">{{ it.name }}</div>
+              </div>
+            </sc-for>
+          </div>
+          <sc-if value="{{ libEmpty }}" hint-placeholder-val="{{ false }}">
+            <div style="padding: 60px 0; text-align: center; font-size: 13px; font-weight: 600; color: var(--y-dim, #71807A);">Nothing on this shelf yet.</div>
+          </sc-if>
+          <div style="height: 96px;"></div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ============ DOWNLOADS / STORAGE ============ -->
+    <sc-if value="{{ isDownloads }}" hint-placeholder-val="{{ false }}">
+      <div style="position: absolute; inset: 0; display: flex; flex-direction: column;">
+        <div style="padding: 18px 18px 12px; flex: 0 0 auto;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px;">
+            <span style="font-size: 25px; font-weight: 800; letter-spacing: -0.03em; color: var(--y-hi, #F2F7F4);">Storage</span>
+            <span style="display: flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--y-ok, #6FC3FF); background: var(--y-pa, rgba(23,181,126,0.16)); padding: 6px 9px; border-radius: 7px;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" style="width: 12px; height: 12px;"><path d="M5 13l4 4L19 7"></path></svg>Persisted
+            </span>
+          </div>
+          <div style="background: var(--y-surf, #141A17); border: 1px solid var(--y-line, #242C28); border-radius: 14px; padding: 14px;">
+            <div style="display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 10px;">
+              <span style="font-size: 12px; font-weight: 600; color: var(--y-mid, #93A29B);">Used on this device</span>
+              <span style="font-size: 12px; font-weight: 800; color: var(--y-hi, #F2F7F4);">{{ storageUsed }} <span style="color: var(--y-dim, #71807A); font-weight: 600;">of 8 GB</span></span>
+            </div>
+            <div style="height: 7px; border-radius: 4px; background: var(--y-surf2, #111713); display: flex; overflow: hidden;">
+              <div style="background: var(--y-p, #17B57E); width: {{ dlPct }}; transition: width 240ms ease;"></div>
+              <div style="background: var(--y-dim, #71807A); width: {{ cachePct }}; transition: width 240ms ease;"></div>
+            </div>
+            <div style="display: flex; gap: 14px; margin-top: 10px;">
+              <span style="display: flex; align-items: center; gap: 6px; font-size: 10.5px; font-weight: 700; color: var(--y-text, #D8E3DD);"><span style="width: 8px; height: 8px; border-radius: 2px; background: var(--y-p, #17B57E);"></span>Downloads · permanent</span>
+              <span style="display: flex; align-items: center; gap: 6px; font-size: 10.5px; font-weight: 700; color: var(--y-mid, #93A29B);"><span style="width: 8px; height: 8px; border-radius: 2px; background: var(--y-dim, #71807A);"></span>Read cache · evictable</span>
+            </div>
+          </div>
+        </div>
+        <div class="yo-scroll" style="flex: 1; min-height: 0;">
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: 4px 18px 10px;">
+            <span style="font-size: 11px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--y-dim, #71807A);">Downloads</span>
+            <span style="font-size: 11px; font-weight: 700; color: var(--y-dim, #71807A);">Keep {{ keepAhead }} ahead</span>
+          </div>
+          <sc-for list="{{ dlList }}" as="d" hint-placeholder-count="3">
+            <div>
+              <div onClick="{{ d.toggle }}" style="display: flex; align-items: center; gap: 13px; padding: 12px 18px; border-top: 1px solid var(--y-line2, #1A211D); cursor: pointer; background: {{ d.rowBg }};">
+                <div style="width: 54px; height: 74px; flex: 0 0 54px; border-radius: 10px; background-image: {{ d.bg }};"></div>
+                <div style="flex: 1; min-width: 0;">
+                  <div style="font-size: 13.5px; font-weight: 700; color: var(--y-hi, #F2F7F4); line-height: 1.25;">{{ d.name }}</div>
+                  <div style="font-size: 11.5px; font-weight: 500; color: var(--y-dim, #71807A); margin-top: 4px;">{{ d.meta }}</div>
+                  <div style="font-size: 10.5px; font-weight: 700; color: var(--y-ok, #6FC3FF); margin-top: 4px;">{{ d.state }}</div>
+                </div>
+                <div style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="width: 16px; height: 16px; color: var(--y-dim, #71807A); transform: {{ d.caret }}; transition: transform 200ms ease;"><path d="M6 9l6 6 6-6"></path></svg>
+                </div>
+              </div>
+              <sc-if value="{{ d.open }}" hint-placeholder-val="{{ false }}">
+                <div>
+                  <sc-for list="{{ d.chapters }}" as="ch" hint-placeholder-count="4">
+                    <div style="display: flex; align-items: center; gap: 12px; height: 50px; padding: 0 18px 0 30px; background: var(--y-surf2, #111713); border-top: 1px solid var(--y-line2, #1A211D);">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="var(--y-ok, #6FC3FF)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width: 15px; height: 15px;"><path d="M5 13l4 4L19 7"></path></svg>
+                      <span onClick="{{ ch.read }}" style="flex: 1; font-size: 12.5px; font-weight: 600; color: var(--y-text, #D8E3DD); cursor: pointer;">{{ ch.label }}</span>
+                      <span style="font-size: 11px; font-weight: 600; color: var(--y-dim, #71807A);">{{ ch.size }}</span>
+                    </div>
+                  </sc-for>
+                  <div onClick="{{ d.remove }}" style="height: 50px; display: flex; align-items: center; gap: 9px; padding: 0 18px 0 30px; background: var(--y-surf2, #111713); border-top: 1px solid var(--y-line2, #1A211D); font-size: 12.5px; font-weight: 800; color: var(--y-a, #F2C14E); cursor: pointer;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="width: 15px; height: 15px;"><path d="M5 7h14M9 7V4h6v3M7 7l1 13h8l1-13"></path></svg>Delete download
+                  </div>
+                </div>
+              </sc-if>
+            </div>
+          </sc-for>
+          <sc-if value="{{ dlEmpty }}" hint-placeholder-val="{{ false }}">
+            <div style="padding: 46px 30px; text-align: center;">
+              <div style="font-size: 14px; font-weight: 700; color: var(--y-hi, #F2F7F4); margin-bottom: 6px;">No downloads yet</div>
+              <div style="font-size: 12px; font-weight: 500; color: var(--y-dim, #71807A); line-height: 1.5;">Open a series and use the download button to keep chapters permanently.</div>
+            </div>
+          </sc-if>
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: 22px 18px 10px;">
+            <span style="font-size: 11px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--y-dim, #71807A);">Read cache</span>
+            <span onClick="{{ clearCache }}" style="font-size: 11px; font-weight: 800; color: var(--y-a, #F2C14E); cursor: pointer;">Clear</span>
+          </div>
+          <sc-for list="{{ cacheList }}" as="k" hint-placeholder-count="3">
+            <div style="display: flex; align-items: center; gap: 12px; height: 56px; padding: 0 18px; border-top: 1px solid var(--y-line2, #1A211D);">
+              <div style="width: 30px; height: 40px; border-radius: 6px; background-image: {{ k.bg }};"></div>
+              <span style="flex: 1; font-size: 12.5px; font-weight: 600; color: var(--y-text, #D8E3DD);">{{ k.label }}</span>
+              <span style="font-size: 11px; font-weight: 600; color: var(--y-dim, #71807A);">{{ k.size }}</span>
+            </div>
+          </sc-for>
+          <div style="padding: 14px 18px 0; font-size: 10.5px; font-weight: 500; color: var(--y-dim, #71807A); line-height: 1.55;">Read cache is evicted oldest-first when space runs low. Downloads are never removed without asking.</div>
+          <div style="height: 96px;"></div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ============ UNREAD FEED ============ -->
+    <sc-if value="{{ isUnread }}" hint-placeholder-val="{{ false }}">
+      <div style="position: absolute; inset: 0; display: flex; flex-direction: column;">
+        <div style="padding: 18px 18px 12px; display: flex; align-items: center; gap: 10px; flex: 0 0 auto;">
+          <div onClick="{{ back }}" style="width: 44px; height: 44px; border-radius: 12px; border: 1px solid var(--y-line, #242C28); display: flex; align-items: center; justify-content: center; cursor: pointer;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="width: 17px; height: 17px; color: var(--y-text, #D8E3DD);"><path d="M15 5l-7 7 7 7"></path></svg>
+          </div>
+          <div style="flex: 1;">
+            <div style="font-size: 19px; font-weight: 800; letter-spacing: -0.02em; color: var(--y-hi, #F2F7F4);">New chapters</div>
+            <div style="font-size: 11px; font-weight: 600; color: var(--y-dim, #71807A); margin-top: 2px;">{{ unreadTotal }} across followed series</div>
+          </div>
+          <div onClick="{{ markAllRead }}" style="height: 40px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--y-line, #242C28); display: flex; align-items: center; font-size: 11.5px; font-weight: 700; color: var(--y-text, #D8E3DD); cursor: pointer;">Mark all read</div>
+        </div>
+        <div class="yo-scroll" style="flex: 1; min-height: 0;">
+          <sc-for list="{{ unreadFeed }}" as="u" hint-placeholder-count="5">
+            <div onClick="{{ u.read }}" style="display: flex; align-items: center; gap: 13px; padding: 12px 18px; border-top: 1px solid var(--y-line2, #1A211D); cursor: pointer;">
+              <div style="width: 48px; height: 66px; flex: 0 0 48px; border-radius: 9px; background-image: {{ u.bg }};"></div>
+              <div style="flex: 1; min-width: 0;">
+                <div style="font-size: 13px; font-weight: 700; color: var(--y-hi, #F2F7F4);">{{ u.name }}</div>
+                <div style="font-size: 11.5px; font-weight: 500; color: var(--y-mid, #93A29B); margin-top: 3px;">{{ u.chapter }}</div>
+                <div style="font-size: 10.5px; font-weight: 600; color: var(--y-dim, #71807A); margin-top: 3px;">{{ u.meta }}</div>
+              </div>
+              <span style="min-width: 22px; height: 22px; border-radius: 11px; background: var(--y-a, #F2C14E); color: var(--y-onp, #05100B); font-size: 10px; font-weight: 800; display: flex; align-items: center; justify-content: center; padding: 0 6px; box-sizing: border-box;">{{ u.count }}</span>
+            </div>
+          </sc-for>
+          <div style="height: 96px;"></div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ============ LOCAL FILES ============ -->
+    <sc-if value="{{ isLocal }}" hint-placeholder-val="{{ false }}">
+      <div style="position: absolute; inset: 0; display: flex; flex-direction: column;">
+        <div style="padding: 18px 18px 12px; display: flex; align-items: center; gap: 10px; flex: 0 0 auto;">
+          <div onClick="{{ back }}" style="width: 44px; height: 44px; border-radius: 12px; border: 1px solid var(--y-line, #242C28); display: flex; align-items: center; justify-content: center; cursor: pointer;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="width: 17px; height: 17px; color: var(--y-text, #D8E3DD);"><path d="M15 5l-7 7 7 7"></path></svg>
+          </div>
+          <div style="flex: 1; min-width: 0;">
+            <div style="font-size: 19px; font-weight: 800; letter-spacing: -0.02em; color: var(--y-hi, #F2F7F4);">Local files</div>
+            <div style="font-size: 11px; font-weight: 600; color: var(--y-dim, #71807A); margin-top: 2px;">{{ localSub }}</div>
+          </div>
+        </div>
+        <div class="yo-scroll" style="flex: 1; min-height: 0; padding: 0 18px;">
+          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;">
+            <sc-for list="{{ importSources }}" as="s" hint-placeholder-count="3">
+              <div onClick="{{ s.tap }}" style="border: 1px dashed var(--y-line, #242C28); border-radius: 14px; padding: 14px 10px; display: flex; flex-direction: column; align-items: center; gap: 8px; cursor: pointer; background: var(--y-surf, #141A17);">
+                <svg viewBox="0 0 24 24" fill="none" stroke="var(--y-plt, #3ED6A0)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width: 21px; height: 21px;"><path d="{{ s.d }}"></path></svg>
+                <span style="font-size: 11.5px; font-weight: 800; color: var(--y-hi, #F2F7F4);">{{ s.label }}</span>
+                <span style="font-size: 9.5px; font-weight: 600; color: var(--y-dim, #71807A); text-align: center; line-height: 1.35;">{{ s.sub }}</span>
+              </div>
+            </sc-for>
+          </div>
+
+          <sc-if value="{{ importing }}" hint-placeholder-val="{{ false }}">
+            <div style="margin-top: 16px; background: var(--y-surf, #141A17); border: 1px solid var(--y-line, #242C28); border-radius: 14px; padding: 14px;">
+              <div style="display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 9px;">
+                <span style="font-size: 12.5px; font-weight: 800; color: var(--y-hi, #F2F7F4);">{{ importName }}</span>
+                <span style="font-size: 11px; font-weight: 700; color: var(--y-plt, #3ED6A0);">{{ importStage }}</span>
+              </div>
+              <div style="height: 6px; border-radius: 4px; background: var(--y-surf2, #111713);">
+                <div style="height: 6px; border-radius: 4px; background: var(--y-p, #17B57E); width: {{ importPct }}; transition: width 260ms ease;"></div>
+              </div>
+              <div style="font-size: 10.5px; font-weight: 500; color: var(--y-dim, #71807A); margin-top: 9px; line-height: 1.5;">{{ importNote }}</div>
+            </div>
+          </sc-if>
+
+          <div style="display: flex; align-items: baseline; justify-content: space-between; margin: 22px 0 8px;">
+            <span style="font-size: 11px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--y-dim, #71807A);">On this device</span>
+            <span style="font-size: 11px; font-weight: 700; color: var(--y-dim, #71807A);">{{ localSize }}</span>
+          </div>
+          <sc-for list="{{ localItems }}" as="l" hint-placeholder-count="3">
+            <div style="display: flex; align-items: center; gap: 13px; padding: 12px 0; border-top: 1px solid var(--y-line2, #1A211D);">
+              <div style="width: 48px; height: 66px; flex: 0 0 48px; border-radius: 9px; background-image: {{ l.bg }};"></div>
+              <div onClick="{{ l.read }}" style="flex: 1; min-width: 0; cursor: pointer;">
+                <div style="display: flex; align-items: center; gap: 7px;">
+                  <span style="font-size: 13px; font-weight: 700; color: var(--y-hi, #F2F7F4);">{{ l.name }}</span>
+                  <span style="font-size: 9px; font-weight: 800; letter-spacing: 0.06em; color: var(--y-onp, #05100B); background: var(--y-ok, #6FC3FF); padding: 3px 5px; border-radius: 4px;">{{ l.kind }}</span>
+                </div>
+                <div style="font-size: 11px; font-weight: 500; color: var(--y-mid, #93A29B); margin-top: 3px;">{{ l.meta }}</div>
+                <div style="font-size: 10.5px; font-weight: 600; color: var(--y-dim, #71807A); margin-top: 3px;">{{ l.sub }}</div>
+              </div>
+              <div onClick="{{ l.remove }}" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="var(--y-a, #F2C14E)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="width: 16px; height: 16px;"><path d="M5 7h14M9 7V4h6v3M7 7l1 13h8l1-13"></path></svg>
+              </div>
+            </div>
+          </sc-for>
+          <sc-if value="{{ localEmpty }}" hint-placeholder-val="{{ false }}">
+            <div style="padding: 40px 10px; text-align: center;">
+              <div style="font-size: 13.5px; font-weight: 700; color: var(--y-hi, #F2F7F4); margin-bottom: 6px;">Nothing imported yet</div>
+              <div style="font-size: 12px; font-weight: 500; color: var(--y-dim, #71807A); line-height: 1.5;">Pick a CBZ/CBR archive, a PDF, or a folder of images. Files are read on this device and never uploaded.</div>
+            </div>
+          </sc-if>
+          <div style="padding: 16px 0 0; font-size: 10.5px; font-weight: 500; color: var(--y-dim, #71807A); line-height: 1.55;">Local series read in the same readers, with their own progress and reading-mode memory. They are excluded from sync and from MangaDex update checks.</div>
+          <div style="height: 40px;"></div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ============ PROFILE / STATS / SETTINGS ============ -->
+    <sc-if value="{{ isProfile }}" hint-placeholder-val="{{ false }}">
+      <div style="position: absolute; inset: 0; display: flex; flex-direction: column;">
+        <div style="padding: 22px 18px 18px; display: flex; align-items: center; gap: 13px; border-bottom: 1px solid var(--y-line, #242C28); flex: 0 0 auto;">
+          <div style="width: 58px; height: 58px; border-radius: 50%; background-image: {{ avatarBg }}; display: flex; align-items: center; justify-content: center; font-size: 21px; font-weight: 800; color: #FFFFFF;">{{ initial }}</div>
+          <div style="flex: 1; min-width: 0;">
+            <div style="font-size: 18px; font-weight: 800; letter-spacing: -0.02em; color: var(--y-hi, #F2F7F4);">{{ accountName }}</div>
+            <div style="font-size: 11px; font-weight: 600; color: var(--y-dim, #71807A); margin-top: 3px;">{{ accountSub }}</div>
+          </div>
+          <div onClick="{{ toggleAuth }}" style="height: 40px; padding: 0 13px; border-radius: 11px; display: flex; align-items: center; font-size: 11.5px; font-weight: 800; cursor: pointer; background: {{ authBg }}; color: {{ authFg }}; border: 1px solid var(--y-line, #242C28);">{{ authLabel }}</div>
+        </div>
+        <div class="yo-scroll" style="flex: 1; min-height: 0; padding: 16px 18px 0;">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 11px;">
+            <sc-for list="{{ stats }}" as="s" hint-placeholder-count="4">
+              <div style="background: var(--y-surf, #141A17); border: 1px solid var(--y-line, #242C28); border-radius: 16px; padding: 13px;">
+                <div style="font-size: 24px; font-weight: 800; letter-spacing: -0.03em; color: {{ s.color }};">{{ s.v }}</div>
+                <div style="font-size: 11px; font-weight: 600; color: var(--y-mid, #93A29B); margin-top: 3px;">{{ s.k }}</div>
+              </div>
+            </sc-for>
+          </div>
+
+          <div style="margin: 20px 0 10px; display: flex; align-items: baseline; justify-content: space-between;">
+            <span style="font-size: 14px; font-weight: 800; color: var(--y-hi, #F2F7F4);">Daily goal</span>
+            <span onClick="{{ cycleGoal }}" style="font-size: 11px; font-weight: 700; color: var(--y-plt, #3ED6A0); cursor: pointer;">{{ goal }} ch/day</span>
+          </div>
+          <div style="background: var(--y-surf, #141A17); border: 1px solid var(--y-line, #242C28); border-radius: 16px; padding: 14px;">
+            <div style="display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 10px;">
+              <span style="font-size: 12.5px; font-weight: 700; color: var(--y-text, #D8E3DD);">{{ goalToday }} read today</span>
+              <span style="font-size: 11px; font-weight: 700; color: var(--y-a, #F2C14E);">{{ streak }}-day streak</span>
+            </div>
+            <div style="height: 7px; border-radius: 4px; background: var(--y-surf2, #111713);">
+              <div style="height: 7px; border-radius: 4px; background: var(--y-p, #17B57E); width: {{ goalPct }}; transition: width 240ms ease;"></div>
+            </div>
+          </div>
+
+          <div style="margin: 20px 0 10px; font-size: 14px; font-weight: 800; color: var(--y-hi, #F2F7F4);">Genre breakdown</div>
+          <div style="background: var(--y-surf, #141A17); border: 1px solid var(--y-line, #242C28); border-radius: 16px; padding: 14px; display: flex; flex-direction: column; gap: 10px;">
+            <sc-for list="{{ genreStats }}" as="g" hint-placeholder-count="4">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="width: 78px; font-size: 11px; font-weight: 700; color: var(--y-text, #D8E3DD);">{{ g.label }}</span>
+                <div style="flex: 1; height: 8px; border-radius: 4px; background: var(--y-surf2, #111713);">
+                  <div style="height: 8px; border-radius: 4px; background: {{ g.color }}; width: {{ g.pct }};"></div>
+                </div>
+                <span style="width: 26px; text-align: right; font-size: 10.5px; font-weight: 700; color: var(--y-dim, #71807A);">{{ g.n }}</span>
+              </div>
+            </sc-for>
+          </div>
+
+          <div style="margin: 22px 0 10px; font-size: 14px; font-weight: 800; color: var(--y-hi, #F2F7F4);">Theme</div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;">
+            <sc-for list="{{ themes }}" as="t" hint-placeholder-count="3">
+              <div onClick="{{ t.tap }}" style="border-radius: 14px; padding: 8px; background: var(--y-surf, #141A17); cursor: pointer; border: 2px solid {{ t.bd }};">
+                <div style="height: 52px; border-radius: 8px; padding: 8px; box-sizing: border-box; background: {{ t.sw }};">
+                  <div style="height: 5px; width: 70%; border-radius: 3px; background: {{ t.ink }};"></div>
+                  <div style="height: 5px; width: 45%; border-radius: 3px; margin-top: 5px; background: {{ t.ink2 }};"></div>
+                  <div style="height: 5px; width: 30%; border-radius: 3px; margin-top: 5px; background: {{ t.dot }};"></div>
+                </div>
+                <div style="font-size: 11px; font-weight: 700; text-align: center; margin-top: 8px; color: {{ t.fg }};">{{ t.label }}</div>
+              </div>
+            </sc-for>
+          </div>
+
+          <div style="margin: 22px 0 4px; font-size: 14px; font-weight: 800; color: var(--y-hi, #F2F7F4);">Settings</div>
+          <sc-for list="{{ settings }}" as="s" hint-placeholder-count="6">
+            <div>
+              <div onClick="{{ s.tap }}" style="display: flex; align-items: center; gap: 13px; min-height: 56px; border-bottom: 1px solid var(--y-line2, #1A211D); cursor: pointer;">
+                <div style="width: 34px; height: 34px; border-radius: 10px; background: var(--y-surf, #141A17); display: flex; align-items: center; justify-content: center;">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="width: 16px; height: 16px; color: var(--y-mid, #93A29B);"><path d="{{ s.d }}"></path></svg>
+                </div>
+                <div style="flex: 1; min-width: 0;">
+                  <div style="font-size: 13.5px; font-weight: 700; color: var(--y-text, #D8E3DD);">{{ s.label }}</div>
+                  <div style="font-size: 10.5px; font-weight: 500; color: var(--y-dim, #71807A); margin-top: 2px;">{{ s.sub }}</div>
+                </div>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="width: 15px; height: 15px; color: var(--y-dim, #71807A); transform: {{ s.caret }}; transition: transform 200ms ease;"><path d="M9 5l7 7-7 7"></path></svg>
+              </div>
+              <sc-if value="{{ s.open }}" hint-placeholder-val="{{ false }}">
+                <div style="padding: 10px 0 14px 47px; display: flex; flex-direction: column; gap: 8px; border-bottom: 1px solid var(--y-line2, #1A211D);">
+                  <sc-for list="{{ s.rows }}" as="r" hint-placeholder-count="2">
+                    <div onClick="{{ r.tap }}" style="display: flex; align-items: center; gap: 12px; min-height: 44px; cursor: pointer;">
+                      <span style="flex: 1; font-size: 12.5px; font-weight: 600; color: var(--y-text, #D8E3DD);">{{ r.label }}</span>
+                      <sc-if value="{{ r.value }}" hint-placeholder-val="{{ false }}">
+                        <span style="font-size: 12px; font-weight: 800; color: var(--y-plt, #3ED6A0);">{{ r.value }}</span>
+                      </sc-if>
+                      <sc-if value="{{ r.hasToggle }}" hint-placeholder-val="{{ true }}">
+                        <div style="width: 44px; height: 26px; border-radius: 13px; padding: 3px; box-sizing: border-box; background: {{ r.trackBg }}; transition: background 200ms ease;">
+                          <div style="width: 20px; height: 20px; border-radius: 50%; background: #FFFFFF; transform: {{ r.knob }}; transition: transform 200ms ease;"></div>
+                        </div>
+                      </sc-if>
+                    </div>
+                  </sc-for>
+                  <sc-if value="{{ s.note }}" hint-placeholder-val="{{ false }}">
+                    <div style="font-size: 11.5px; font-weight: 500; color: var(--y-dim, #71807A); line-height: 1.55;">{{ s.note }}</div>
+                  </sc-if>
+                </div>
+              </sc-if>
+            </div>
+          </sc-for>
+          <div style="height: 100px;"></div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ============ OFFLINE BANNER ============ -->
+    <sc-if value="{{ showOfflineBanner }}" hint-placeholder-val="{{ false }}">
+      <div style="position: absolute; top: 0; left: 0; right: 0; height: 30px; background: var(--y-warn, #E4804A); display: flex; align-items: center; justify-content: center; gap: 7px; z-index: 5;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#1A1208" stroke-width="2.3" stroke-linecap="round" style="width: 12px; height: 12px;"><path d="M3 4l18 16M5 12.5a11 11 0 0 1 4-2.6M2 8.6A16 16 0 0 1 15 6.4M12 19h.01"></path></svg>
+        <span style="font-size: 10.5px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: #1A1208;">Offline — downloads only</span>
+      </div>
+    </sc-if>
+
+    <!-- ============ BOTTOM NAV ============ -->
+    <sc-if value="{{ showNav }}" hint-placeholder-val="{{ true }}">
+      <div style="position: absolute; bottom: 0; left: 0; right: 0; display: flex; gap: 2px; height: 78px; padding: 7px 6px 15px; box-sizing: border-box; background: var(--y-ov, rgba(10,14,12,0.92)); border-top: 1px solid var(--y-line, #242C28); backdrop-filter: blur(14px);">
+        <sc-for list="{{ navItems }}" as="n" hint-placeholder-count="5">
+          <div onClick="{{ n.tap }}" style="flex: 1; min-height: 52px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; cursor: pointer; position: relative;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="{{ n.color }}" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="width: 22px; height: 22px;"><path d="{{ n.d }}"></path></svg>
+            <span style="font-size: 10px; font-weight: 700; color: {{ n.color }};">{{ n.label }}</span>
+            <sc-if value="{{ n.badge }}" hint-placeholder-val="{{ false }}">
+              <span style="position: absolute; top: 2px; right: 18px; min-width: 16px; height: 16px; border-radius: 8px; background: var(--y-a, #F2C14E); color: var(--y-onp, #05100B); font-size: 9px; font-weight: 800; display: flex; align-items: center; justify-content: center; padding: 0 4px; box-sizing: border-box;">{{ n.badge }}</span>
+            </sc-if>
+          </div>
+        </sc-for>
+      </div>
+    </sc-if>
+
+    <!-- ============ CHAPTER LIST SHEET ============ -->
+    <sc-if value="{{ sheetOpen }}" hint-placeholder-val="{{ false }}">
+      <div style="position: absolute; inset: 0; z-index: 8;">
+        <div onClick="{{ closeSheet }}" style="position: absolute; inset: 0; background: rgba(0,0,0,0.6); cursor: pointer;"></div>
+        <div style="position: absolute; left: 0; right: 0; bottom: 0; max-height: 560px; background: var(--y-surf, #141A17); border-top: 1px solid var(--y-line, #242C28); border-radius: 20px 20px 0 0; display: flex; flex-direction: column; overflow: hidden;">
+          <div style="padding: 15px 18px 12px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--y-line, #242C28);">
+            <span style="font-size: 15px; font-weight: 800; color: var(--y-hi, #F2F7F4);">{{ readerSeries }}</span>
+            <div onClick="{{ closeSheet }}" style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="width: 15px; height: 15px; color: var(--y-mid, #93A29B);"><path d="M6 6l12 12M18 6 6 18"></path></svg>
+            </div>
+          </div>
+          <div class="yo-scroll" style="flex: 1; min-height: 0;">
+            <sc-for list="{{ sheetChapters }}" as="ch" hint-placeholder-count="8">
+              <div onClick="{{ ch.read }}" style="display: flex; align-items: center; gap: 10px; height: 54px; padding: 0 18px; border-bottom: 1px solid var(--y-line2, #1A211D); cursor: pointer; background: {{ ch.rowBg }};">
+                <span style="flex: 1; font-size: 13px; font-weight: 700; color: {{ ch.titleColor }};">{{ ch.label }}</span>
+                <span style="font-size: 10.5px; font-weight: 600; color: var(--y-dim, #71807A);">{{ ch.sub }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ============ GENERIC OPTION SHEET (versions / shelf / download / reader settings) ============ -->
+    <sc-if value="{{ optSheet }}" hint-placeholder-val="{{ false }}">
+      <div style="position: absolute; inset: 0; z-index: 9;">
+        <div onClick="{{ closeOptSheet }}" style="position: absolute; inset: 0; background: rgba(0,0,0,0.62); cursor: pointer;"></div>
+        <div style="position: absolute; left: 0; right: 0; bottom: 0; max-height: 620px; background: var(--y-surf, #141A17); border-top: 1px solid var(--y-line, #242C28); border-radius: 20px 20px 0 0; display: flex; flex-direction: column; overflow: hidden;">
+          <div style="padding: 16px 18px 12px; border-bottom: 1px solid var(--y-line, #242C28);">
+            <div style="font-size: 15px; font-weight: 800; color: var(--y-hi, #F2F7F4);">{{ optTitle }}</div>
+            <div style="font-size: 11px; font-weight: 500; color: var(--y-dim, #71807A); margin-top: 4px;">{{ optSub }}</div>
+          </div>
+          <div class="yo-scroll" style="flex: 1; min-height: 0; padding: 6px 10px 18px;">
+            <sc-for list="{{ optItems }}" as="o" hint-placeholder-count="5">
+              <div onClick="{{ o.tap }}" style="display: flex; align-items: center; gap: 12px; min-height: 54px; padding: 8px 12px; border-radius: 12px; cursor: pointer; background: {{ o.bg }};" style-hover="background: var(--y-surf2, #111713);">
+                <div style="flex: 1; min-width: 0;">
+                  <div style="font-size: 13.5px; font-weight: 700; color: {{ o.fg }};">{{ o.label }}</div>
+                  <sc-if value="{{ o.sub }}" hint-placeholder-val="{{ false }}">
+                    <div style="font-size: 11px; font-weight: 500; color: var(--y-dim, #71807A); margin-top: 3px;">{{ o.sub }}</div>
+                  </sc-if>
+                </div>
+                <sc-if value="{{ o.value }}" hint-placeholder-val="{{ false }}">
+                  <span style="font-size: 12px; font-weight: 800; color: var(--y-plt, #3ED6A0);">{{ o.value }}</span>
+                </sc-if>
+                <sc-if value="{{ o.check }}" hint-placeholder-val="{{ false }}">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="var(--y-p, #17B57E)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="width: 17px; height: 17px;"><path d="M5 13l4 4L19 7"></path></svg>
+                </sc-if>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ============ LONG-PRESS CONTEXT MENU ============ -->
+    <sc-if value="{{ menuOpen }}" hint-placeholder-val="{{ false }}">
+      <div style="position: absolute; inset: 0; z-index: 9;">
+        <div onClick="{{ closeMenu }}" style="position: absolute; inset: 0; background: rgba(0,0,0,0.62); backdrop-filter: blur(2px); cursor: pointer;"></div>
+        <div style="position: absolute; left: 24px; right: 24px; top: 230px; border-radius: 18px; background: var(--y-surf, #141A17); border: 1px solid var(--y-line, #242C28); padding: 6px; box-shadow: 0 24px 60px rgba(0,0,0,0.6);">
+          <div style="padding: 12px 12px 10px; font-size: 11px; font-weight: 800; letter-spacing: 0.07em; text-transform: uppercase; color: var(--y-dim, #71807A);">{{ menuTitle }}</div>
+          <sc-for list="{{ menuItems }}" as="m" hint-placeholder-count="5">
+            <div onClick="{{ m.tap }}" style="min-height: 48px; display: flex; align-items: center; gap: 12px; padding: 0 12px; border-radius: 10px; font-size: 13.5px; font-weight: 700; cursor: pointer; color: {{ m.color }};" style-hover="background: var(--y-surf2, #111713);">
+              <svg viewBox="0 0 24 24" fill="none" stroke="{{ m.color }}" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="width: 17px; height: 17px;"><path d="{{ m.d }}"></path></svg>{{ m.label }}
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ============ ZOOM OVERLAY ============ -->
+    <sc-if value="{{ zoomOpen }}" hint-placeholder-val="{{ false }}">
+      <div onClick="{{ closeZoom }}" style="position: absolute; inset: 0; background: rgba(0,0,0,0.84); display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 9;">
+        <div style="width: 330px; border-radius: 28px; background: #FAFAFA; padding: 28px; box-sizing: border-box; display: flex; flex-direction: column; gap: 13px; box-shadow: 0 30px 70px rgba(0,0,0,0.6);">
+          <div style="width: 100%; height: 11px; border-radius: 6px; background: #C4C4C4;"></div>
+          <div style="width: 86%; height: 11px; border-radius: 6px; background: #CFCFCF;"></div>
+          <div style="width: 64%; height: 11px; border-radius: 6px; background: #DADADA;"></div>
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 6px;">
+            <span style="font-size: 10.5px; font-weight: 800; letter-spacing: 0.07em; text-transform: uppercase; color: #8A8A8A;">{{ zoomLabel }}</span>
+            <span style="font-size: 10.5px; font-weight: 700; color: #8A8A8A;">Tap to close</span>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ============ NOT-DOWNLOADED PROMPT ============ -->
+    <sc-if value="{{ blockOpen }}" hint-placeholder-val="{{ false }}">
+      <div style="position: absolute; inset: 0; z-index: 10; display: flex; align-items: center; justify-content: center;">
+        <div onClick="{{ closeBlock }}" style="position: absolute; inset: 0; background: rgba(0,0,0,0.66); cursor: pointer;"></div>
+        <div style="position: relative; width: 320px; border-radius: 18px; background: var(--y-surf, #141A17); border: 1px solid var(--y-line, #242C28); padding: 20px;">
+          <div style="font-size: 15px; font-weight: 800; color: var(--y-hi, #F2F7F4); margin-bottom: 8px;">Not downloaded</div>
+          <div style="font-size: 12.5px; font-weight: 500; color: var(--y-mid, #93A29B); line-height: 1.55; margin-bottom: 16px;">{{ blockText }}</div>
+          <div style="display: flex; gap: 9px;">
+            <div onClick="{{ goOnlineAndRead }}" style="flex: 1; height: 44px; border-radius: 11px; background: var(--y-p, #17B57E); color: var(--y-onp, #05100B); font-size: 12.5px; font-weight: 800; display: flex; align-items: center; justify-content: center; cursor: pointer;">Go back online</div>
+            <div onClick="{{ closeBlock }}" style="flex: 0 0 auto; height: 44px; padding: 0 16px; border-radius: 11px; border: 1px solid var(--y-line, #242C28); font-size: 12.5px; font-weight: 700; color: var(--y-text, #D8E3DD); display: flex; align-items: center; cursor: pointer;">Cancel</div>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ============ ONBOARDING ============ -->
+    <sc-if value="{{ onboarding }}" hint-placeholder-val="{{ false }}">
+      <div style="position: absolute; inset: 0; z-index: 12; background: var(--y-bg, #0A0E0C); display: flex; flex-direction: column;">
+        <div style="flex: 1; min-height: 0; background-image: {{ onb.bg }}; position: relative;">
+          <div style="position: absolute; inset: 0; background: linear-gradient(to top, var(--y-bg, #0A0E0C) 12%, transparent 70%);"></div>
+          <div onClick="{{ skipOnboarding }}" style="position: absolute; top: 18px; right: 18px; height: 40px; padding: 0 14px; border-radius: 11px; background: var(--y-ov2, rgba(10,14,12,0.5)); display: flex; align-items: center; font-size: 12px; font-weight: 700; color: var(--y-hi, #F2F7F4); cursor: pointer;">Skip</div>
+        </div>
+        <div style="flex: 0 0 auto; padding: 0 22px 30px;">
+          <div style="display: flex; gap: 6px; margin-bottom: 18px;">
+            <sc-for list="{{ onbDots }}" as="d" hint-placeholder-count="3">
+              <span style="height: 3px; flex: 1; border-radius: 2px; background: {{ d.bg }};"></span>
+            </sc-for>
+          </div>
+          <div style="font-size: 27px; font-weight: 800; letter-spacing: -0.03em; line-height: 1.1; color: var(--y-hi, #F2F7F4); margin-bottom: 10px;">{{ onb.title }}</div>
+          <div style="font-size: 13px; font-weight: 500; color: var(--y-mid, #93A29B); line-height: 1.6; margin-bottom: 22px;">{{ onb.body }}</div>
+          <div onClick="{{ onb.next }}" style="height: 52px; border-radius: 14px; background: var(--y-p, #17B57E); color: var(--y-onp, #05100B); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 800; line-height: 1; white-space: nowrap; cursor: pointer;">{{ onb.cta }}</div>
+          <sc-if value="{{ onb.secondary }}" hint-placeholder-val="{{ false }}">
+            <div onClick="{{ skipOnboarding }}" style="height: 48px; display: flex; align-items: center; justify-content: center; font-size: 12.5px; font-weight: 700; color: var(--y-dim, #71807A); cursor: pointer;">{{ onb.secondary }}</div>
+          </sc-if>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ============ TOAST ============ -->
+    <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+      <div style="position: absolute; left: 20px; right: 20px; bottom: 94px; background: var(--y-hi, #F2F7F4); color: var(--y-bg, #0A0E0C); border-radius: 12px; padding: 13px 16px; font-size: 12.5px; font-weight: 700; box-shadow: 0 16px 40px rgba(0,0,0,0.5); z-index: 11;">{{ toast }}</div>
+    </sc-if>
+
+  </div>
+
+  <div style="width: 390px; font-size: 11.5px; font-weight: 500; color: #6C7A74; line-height: 1.6;">Built to the Yomu docs: MangaDex English-only with visible numbering gaps, chapter-version switching, two-tier storage, exact-position resume, optional Google sync, and full offline/error states. Use the header chip to simulate going offline.</div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:470,&quot;height&quot;:1000}}">
+const THEMES = {
+  Dark: { bg: '#0A0E0C', surf: '#141A17', surf2: '#111713', line: '#242C28', line2: '#1A211D', hi: '#F2F7F4', text: '#D8E3DD', mid: '#93A29B', dim: '#71807A', p: '#17B57E', plt: '#3ED6A0', a: '#F2C14E', ok: '#6FC3FF', warn: '#E4804A', black: '#050706', onp: '#05100B', pa: 'rgba(23,181,126,0.16)', aa: 'rgba(242,193,78,0.16)', ov: 'rgba(10,14,12,0.92)', ov2: 'rgba(10,14,12,0.5)' },
+  Light: { bg: '#F6F7F5', surf: '#FFFFFF', surf2: '#EDF0EC', line: '#DBE0D9', line2: '#E7EBE5', hi: '#0E1512', text: '#26302B', mid: '#5C6B64', dim: '#7C8A83', p: '#0E8F62', plt: '#0B7A54', a: '#A8741A', ok: '#1E7FB8', warn: '#C2621F', black: '#1B211E', onp: '#FFFFFF', pa: 'rgba(14,143,98,0.12)', aa: 'rgba(168,116,26,0.14)', ov: 'rgba(246,247,245,0.94)', ov2: 'rgba(20,26,23,0.42)' },
+  Sepia: { bg: '#F1E3C9', surf: '#E9DABB', surf2: '#E1D0AF', line: '#D0BC98', line2: '#DACBA9', hi: '#2C2114', text: '#3E3020', mid: '#6B5A42', dim: '#8A7659', p: '#8A5A2B', plt: '#6E4620', a: '#A8551F', ok: '#4A6E52', warn: '#9C4A16', black: '#2A2114', onp: '#FBF3E4', pa: 'rgba(138,90,43,0.14)', aa: 'rgba(168,85,31,0.14)', ov: 'rgba(241,227,201,0.94)', ov2: 'rgba(44,33,20,0.42)' }
+};
+
+const HUES = ['#17B57E', '#0FA0A8', '#4F9BE0', '#8B6BE0', '#D9557A', '#E08A3C', '#F2C14E', '#7FBF5A'];
+
+const GROUPS = ['Kirin Scans', 'Lanternlight', 'Official (Webtoon)', 'Hanzu Works', 'Nightfall TL'];
+
+const CATALOG = [
+  { id: 'ninth', name: 'The Ninth Return', type: 'Manhwa', author: 'Hae-jin Seo', status: 'Ongoing', total: 214, gaps: 6, rating: '4.8', votes: '12.4k', hue: 0, licensed: false, genres: ['Action', 'Fantasy', 'Reincarnation', 'Drama'], syn: 'Nine lifetimes, nine failures. When Seol wakes on the morning of the siege for the tenth time, he keeps the one thing the cycle cannot take — the memory of every blade that ever killed him. This time he intends to use it, and the sect that sold his city out will learn what a man remembers after nine deaths.' },
+  { id: 'moonlit', name: 'Moonlit Contract', type: 'Manhwa', author: 'Yuna Park', status: 'Ongoing', total: 96, gaps: 2, rating: '4.6', votes: '8.1k', hue: 4, licensed: true, genres: ['Romance', 'Supernatural', 'Slow Burn'], syn: 'A night-market fortune teller signs a contract she cannot read, and wakes bound to the quiet man who collects debts for the moon. One favour a month, for as long as the moon is full.' },
+  { id: 'ironpetal', name: 'Iron Petal', type: 'Manga', author: 'Kaori Fuse', status: 'Completed', total: 18, gaps: 0, rating: '4.9', votes: '3.2k', hue: 5, licensed: true, genres: ['Drama', 'Historical', 'Slice of Life'], syn: 'A blacksmith\u2019s daughter in a town that no longer needs swords takes a commission she should have refused: one blade, for a customer who will not say what it is for.' },
+  { id: 'hollow', name: 'Hollow King', type: 'Manhwa', author: 'Dae-ho Lim', status: 'Ongoing', total: 132, gaps: 9, rating: '4.4', votes: '9.7k', hue: 2, licensed: false, genres: ['Action', 'Dark Fantasy', 'Tower'], syn: 'The throne at the top of the tower has been empty for a thousand floors. Everyone who reaches it comes back hollow, and the sixteenth climber intends to find out why before he sits down.' },
+  { id: 'ashborne', name: 'Ashborne', type: 'Manhwa', author: 'Min-seo Ryu', status: 'Completed', total: 204, gaps: 3, rating: '4.7', votes: '21k', hue: 5, licensed: false, genres: ['Action', 'Revenge', 'Martial Arts'], syn: 'They burned the valley to hide one witness. The ash remembers him, and so does his sword.' },
+  { id: 'solo', name: 'Solo Ascendant', type: 'Manhwa', author: 'Jin Baek', status: 'Ongoing', total: 91, gaps: 4, rating: '4.5', votes: '15k', hue: 3, licensed: false, genres: ['Action', 'System', 'Fantasy'], syn: 'The weakest hunter in the registry gets a status window nobody else can see, and a quest log that keeps asking him to do things alone.' },
+  { id: 'nightfall', name: 'Nightfall Academy', type: 'Manhwa', author: 'Soo-ah Kwon', status: 'Ongoing', total: 46, gaps: 1, rating: '4.3', votes: '4.6k', hue: 1, licensed: false, genres: ['School', 'Mystery', 'Supernatural'], syn: 'Lessons start at sunset and attendance is mandatory. Students who fail a class are not expelled — they simply stop being on the register.' },
+  { id: 'ember', name: 'Ember Dynasty', type: 'Manhua', author: 'Li Wenrui', status: 'Ongoing', total: 133, gaps: 12, rating: '4.2', votes: '6.3k', hue: 6, licensed: false, genres: ['Xianxia', 'Politics', 'Cultivation'], syn: 'An empire built on a banked fire, and a prince who was raised as the firewood.' },
+  { id: 'hanzu', name: 'Blades of Hanzu', type: 'Manga', author: 'Ren Takeda', status: 'Ongoing', total: 34, gaps: 0, rating: '4.4', votes: '2.8k', hue: 7, licensed: true, genres: ['Samurai', 'Action', 'Historical'], syn: 'Two schools, one road through the mountains, and a rule that only one of them may teach the draw.' },
+  { id: 'spring', name: 'Quietly, Spring', type: 'Manga', author: 'Aya Nomura', status: 'Ongoing', total: 12, gaps: 0, rating: '4.8', votes: '1.9k', hue: 4, licensed: false, genres: ['Romance', 'Slice of Life'], syn: 'A florist, a night-shift baker, and the four minutes they share at the crossing every morning.' },
+  { id: 'aoi', name: 'Caf\u00e9 Aoi', type: 'Manga', author: 'Haru Mizuki', status: 'Ongoing', total: 40, gaps: 1, rating: '4.5', votes: '3.4k', hue: 1, licensed: false, genres: ['Slice of Life', 'Comedy', 'Food'], syn: 'A basement caf\u00e9 that only appears to people having a genuinely bad day, and the barista who is very tired of the paperwork.' },
+  { id: 'starbound', name: 'Starbound Alchemist', type: 'Manhua', author: 'Chen Qiao', status: 'Ongoing', total: 88, gaps: 5, rating: '4.1', votes: '5.1k', hue: 3, licensed: false, genres: ['Alchemy', 'Adventure', 'Fantasy'], syn: 'Every star is a furnace, and she has learned to borrow from all of them.' }
+];
+
+const CH_TITLES = ['Tenth Morning', 'The Siege Breaks', 'What He Kept', 'Nine Graves', 'Lantern Oath', 'Salt and Iron', 'The Quiet Forge', 'Second Vessel', 'Beneath the Lantern', 'Ash on the Water', 'A Borrowed Name', 'The Long Stair', 'Debt Collected', 'Two Schools, One Road', 'Where the Fire Sleeps'];
+const SIZES = ['28 MB', '31 MB', '34 MB', '26 MB', '39 MB'];
+const FITS = ['Fit width', 'Fit height', 'Original'];
+const ONB = [
+  { title: 'Three ways to read', body: 'Manhwa and manhua open in seamless vertical scroll; manga opens paged, right-to-left, with a finger-following 3D page curl. Your own CBZ, PDF and image folders open too.', cta: 'Next' },
+  { title: 'Tap to zoom a bubble', body: 'Tap anywhere to zoom at that exact point. Where bubble detection is available the zoom snaps to the speech bubble — and silently falls back to tap-zoom when it is not.', cta: 'Next' },
+  { title: 'Reads offline', body: 'Download a chapter, a range, or a whole series. Downloads are permanent; browsing cache is temporary and evicted first when space runs low.', cta: 'Continue with Google', secondary: 'Skip — use this device only' }
+];
+
+class Component extends DCLogic {
+  state = {
+    screen: 'home', prev: 'home', theme: 'Dark', onboardStep: 0, onboarded: false,
+    signedIn: false, offline: false,
+    query: '', filter: 'All', scope: 'Global',
+    recents: ['moonlit contract', 'completed romance', 'starbound'], saved: ['Action · Ongoing'],
+    seriesId: 'ninth', synOpen: false, order: 'new',
+    progress: { ninth: 128, moonlit: 62, ironpetal: 14, hollow: 7 },
+    lib: { ninth: 'Reading', moonlit: 'Reading', ironpetal: 'Reading', hollow: 'On Hold', ashborne: 'Completed', ember: 'Dropped', aoi: 'Reading', spring: 'Plan to Read' },
+    follows: { ninth: true, moonlit: true, aoi: true }, notify: { ninth: true },
+    dl: { ninth: 46, moonlit: 22 }, versions: {}, bookmarks: {},
+    libTab: 'All', sort: 'Recently read', dupSeen: false,
+    readerId: null, readerCh: 1, readerMode: 'scroll', page: 1, flip: 0,
+    hud: true, scrollY: 0, scrollMax: 1, autoScroll: false, speed: 2,
+    rtl: true, fit: 0, gapWhite: false, brightness: 0, doublePage: false, volumeKeys: true, edgeTap: true,
+    notifyPush: true, wifiOnly: true, dataSaver: false, nightWarm: true, wakeLock: true, immersive: true,
+    keepAhead: 5, goal: 3, todayRead: 2, streak: 64,
+    local: [{ id: 'lc1', name: 'Hanzu Works — vol. 12 (scan)', kind: 'CBZ', pages: 214, size: '184 MB', mode: 'Paged RTL', read: 46, hue: 7 }],
+    importing: null, localId: null,
+    sheetOpen: false, optSheet: null, menuId: null, zoomOpen: false, blockCh: null,
+    dlOpen: null, settingOpen: null, cacheCleared: false, toast: ''
+  };
+
+  componentDidMount() {
+    try {
+      const raw = localStorage.getItem('yomu:v2');
+      if (raw) {
+        const s = JSON.parse(raw);
+        this.setState(Object.assign({}, s, { onboarded: true }));
+      }
+    } catch (e) {}
+  }
+
+  componentDidUpdate() {
+    try {
+      const { theme, progress, lib, dl, follows, notify, bookmarks, signedIn, rtl, fit, keepAhead, goal, versions, onboarded } = this.state;
+      localStorage.setItem('yomu:v2', JSON.stringify({ theme, progress, lib, dl, follows, notify, bookmarks, signedIn, rtl, fit, keepAhead, goal, versions, onboarded }));
+    } catch (e) {}
+  }
+
+  componentWillUnmount() { clearTimeout(this.holdT); clearTimeout(this.toastT); clearTimeout(this.flipT); clearInterval(this.autoT); clearInterval(this.impT); }
+
+  series(id) { return CATALOG.find(s => s.id === id) || CATALOG[0]; }
+  enCount(s) { return s.total - s.gaps; }
+  unread(id) { const s = this.series(id); return Math.max(0, this.enCount(s) - (this.state.progress[id] || 0)); }
+  downloaded(id, n) { const s = this.series(id); const have = this.state.dl[id] || 0; return n > s.total - have; }
+  cover(hue, shift) {
+    const t = THEMES[this.state.theme];
+    const h = HUES[(hue + (shift || 0)) % HUES.length];
+    return 'linear-gradient(150deg,' + h + ' 0%,color-mix(in oklab, ' + h + ' 36%, ' + t.bg + ') 58%,' + t.bg + ' 100%)';
+  }
+  chTitle(s, n) { return CH_TITLES[(n + s.name.length) % CH_TITLES.length]; }
+  chNums(s, count) {
+    const out = [];
+    let n = s.total;
+    while (out.length < count && n > 0) {
+      if (!(s.gaps > 0 && n % 17 === 0)) out.push(n);
+      n--;
+    }
+    return out;
+  }
+  groupFor(s) { return GROUPS[s.name.length % GROUPS.length]; }
+  say(msg) { clearTimeout(this.toastT); this.setState({ toast: msg }); this.toastT = setTimeout(() => this.setState({ toast: '' }), 2000); }
+  go = (screen) => this.setState(s => ({ screen, prev: s.screen, menuId: null, sheetOpen: false, optSheet: null }));
+  openSeries = (id) => this.setState(s => ({ screen: 'detail', prev: s.screen === 'detail' ? s.prev : s.screen, seriesId: id, synOpen: false, menuId: null, optSheet: null }));
+  read = (id, n) => {
+    if (this.state.offline && !this.downloaded(id, n)) { this.setState({ blockCh: { id, n }, sheetOpen: false, optSheet: null }); return; }
+    const sr = this.series(id);
+    clearInterval(this.autoT);
+    this.setState(s => ({
+      screen: 'reader', prev: s.screen === 'reader' ? s.prev : s.screen, readerId: id, readerCh: n,
+      readerMode: sr.type === 'Manga' ? 'paged' : 'scroll', page: 1, hud: true, scrollY: 0,
+      autoScroll: false, sheetOpen: false, optSheet: null, menuId: null, blockCh: null,
+      progress: Object.assign({}, s.progress, { [id]: Math.max(s.progress[id] || 0, n) }),
+      todayRead: s.todayRead + (s.progress[id] === n ? 0 : 1),
+      lib: s.lib[id] ? s.lib : Object.assign({}, s.lib, { [id]: 'Reading' })
+    }));
+    if (this.scrollEl) this.scrollEl.scrollTop = 0;
+  };
+  startImport(kind, file) {
+    clearInterval(this.impT);
+    const stages = kind === 'PDF' ? ['Reading file', 'Rendering pages', 'Saving'] : ['Reading file', 'Sorting pages', 'Saving'];
+    this.setState({ importing: { kind, file, pct: 6, stage: stages[0] } });
+    this.impT = setInterval(() => {
+      const im = this.state.importing;
+      if (!im) { clearInterval(this.impT); return; }
+      const pct = im.pct + 11;
+      if (pct >= 100) {
+        clearInterval(this.impT);
+        const pages = 90 + (file.length * 7) % 140;
+        this.setState(s => ({
+          importing: null,
+          local: s.local.concat([{
+            id: 'lc' + Date.now(), name: file.replace(/\.(cbz|pdf)$/i, '').replace(/^\//, ''),
+            kind: kind === 'Folder' ? 'FOLDER' : kind, pages, size: Math.round(pages * 0.9) + ' MB',
+            mode: kind === 'Folder' ? 'Vertical scroll' : 'Paged RTL', read: 0, hue: (pages + file.length) % 8
+          }])
+        }));
+        this.say(file + ' imported · ' + pages + ' pages');
+      } else {
+        this.setState({ importing: Object.assign({}, im, { pct, stage: stages[Math.min(2, Math.floor(pct / 34))] }) });
+      }
+    }, 320);
+  }
+
+  autoTick() {
+    clearInterval(this.autoT);
+    if (!this.state.autoScroll) return;
+    this.autoT = setInterval(() => {
+      if (this.scrollEl) this.scrollEl.scrollTop += this.state.speed * 2;
+    }, 32);
+  }
+
+  renderVals() {
+    const st = this.state;
+    const c = THEMES[st.theme] || THEMES.Dark;
+    const reading = st.screen === 'reader';
+    const sr = this.series(st.seriesId);
+    const rsr = st.readerId ? this.series(st.readerId) : sr;
+    const localFile = st.localId ? st.local.find(l => l.id === st.localId) : null;
+    const libIds = Object.keys(st.lib);
+    const unreadTotal = Object.keys(st.follows).reduce((a, id) => a + this.unread(id), 0);
+
+    // ---------- home ----------
+    const hero = CATALOG[0];
+    const mk = (s, extra) => Object.assign({
+      name: s.name, bg: this.cover(s.hue), sub: s.status + ' · ' + this.enCount(s) + ' EN',
+      badge: 'Ch. ' + this.enCount(s), unread: 0, offlineOk: (st.dl[s.id] || 0) > 0, pct: null,
+      tap: () => this.openSeries(s.id)
+    }, extra || {});
+    const contItems = Object.keys(st.progress).map(id => {
+      const s = this.series(id);
+      const n = st.progress[id];
+      return mk(s, { badge: 'Ch. ' + n, pct: Math.round((n / this.enCount(s)) * 100) + '%', unread: this.unread(id), sub: 'Resume ch. ' + n, tap: () => this.read(id, n) });
+    });
+    const rows = [
+      { title: 'Continue Reading', note: 'Exact page resume · synced', items: contItems, all: () => this.go('library') },
+      { title: 'Popular / Trending', note: 'MangaDex follows + rating', items: ['ashborne', 'solo', 'nightfall', 'hollow'].map(id => mk(this.series(id))), all: () => { this.setState({ filter: 'All', query: '' }); this.go('search'); } },
+      { title: 'Latest Updates', note: 'New English chapters, newest first', items: ['ember', 'starbound', 'aoi', 'hanzu'].map(id => mk(this.series(id), { badge: 'New ch.', unread: this.unread(id) })), all: () => this.go('unread') },
+      { title: 'Because you read Action', note: 'From your most-read genres', items: ['hanzu', 'ironpetal', 'spring', 'moonlit'].map(id => mk(this.series(id))), all: () => { this.setState({ filter: 'Action', query: '' }); this.go('search'); } }
+    ];
+
+    // ---------- search ----------
+    const q = st.query.trim().toLowerCase();
+    const scopeLib = st.scope === 'Library';
+    const pool = scopeLib ? CATALOG.filter(s => libIds.includes(s.id)) : CATALOG;
+    const f = st.filter;
+    const matches = pool.filter(s => {
+      const statusOk = f === 'Completed' ? s.status === 'Completed' : f === 'Ongoing' ? s.status === 'Ongoing' : true;
+      const genreOk = ['Action', 'Romance', 'Fantasy'].includes(f) ? s.genres.includes(f) : true;
+      const year = f === '2026' ? s.gaps < 4 : true;
+      const qOk = !q || (s.name + ' ' + s.author + ' ' + s.genres.join(' ')).toLowerCase().includes(q);
+      return statusOk && genreOk && year && qOk;
+    });
+    const mdUnreachable = st.offline && !scopeLib;
+    const filters = ['All', 'Ongoing', 'Completed', 'Action', 'Romance', 'Fantasy', '2026'].map(label => ({
+      label, bg: f === label ? c.p : c.surf, fg: f === label ? c.onp : c.mid, bd: f === label ? c.p : c.line,
+      tap: () => this.setState({ filter: label })
+    }));
+
+    // ---------- detail ----------
+    const nums = this.chNums(sr, 26);
+    const ordered = st.order === 'new' ? nums : nums.slice().reverse();
+    const cur = st.progress[sr.id];
+    const chapters = ordered.map(n => {
+      const have = this.downloaded(sr.id, n);
+      const blocked = st.offline && !have;
+      return {
+        label: 'Chapter ' + n,
+        sub: this.chTitle(sr, n) + ' · ' + this.groupFor(sr) + ' · ' + (n > sr.total - 3 ? (sr.total - n + 2) + 'd ago' : Math.ceil((sr.total - n) / 4) + 'w ago'),
+        fresh: n > sr.total - 2 && !cur, current: cur === n, blocked,
+        titleColor: cur && n <= cur ? c.mid : c.hi,
+        rowBg: cur === n ? c.pa : 'transparent',
+        dlIcon: have ? 'M5 13l4 4L19 7' : 'M12 3v12m0 0 4-4m-4 4-4-4M4 20h16',
+        dlColor: have ? c.ok : c.dim,
+        read: () => this.read(sr.id, n),
+        download: (e) => {
+          if (e) e.stopPropagation();
+          this.setState(s => ({ dl: Object.assign({}, s.dl, { [sr.id]: Math.max(s.dl[sr.id] || 0, sr.total - n + 1) }) }));
+          this.say('Chapter ' + n + ' downloaded · ' + (st.wifiOnly ? 'wifi' : 'any network'));
+        }
+      };
+    });
+    const followed = !!st.follows[sr.id];
+    const notified = !!st.notify[sr.id];
+    const version = st.versions[sr.id] || this.groupFor(sr);
+
+    // ---------- reader ----------
+    const pageTotal = localFile ? localFile.pages : 48;
+    const curlOk = !st.dataSaver;
+    const pageEl = React.createElement('div', {
+      key: 'p' + st.readerCh + '-' + st.page,
+      style: {
+        position: 'absolute', inset: 0, background: st.gapWhite ? '#E9E9E9' : '#0F1210',
+        display: 'grid', gridTemplateColumns: st.doublePage ? '1fr 1fr' : '1fr 1fr',
+        gridTemplateRows: '1.35fr 1fr 1.1fr', gap: '5px', padding: '5px', boxSizing: 'border-box',
+        transformOrigin: st.flip > 0 ? 'left center' : 'right center',
+        transform: st.flip ? (curlOk ? 'rotateY(' + (st.flip * -24) + 'deg)' : 'translateX(' + (st.flip * -30) + 'px)') : 'none',
+        transition: 'transform 260ms cubic-bezier(.4,0,.2,1)'
+      }
+    }, [
+      React.createElement('div', { key: 'a', style: { gridColumn: 'span 2', background: 'linear-gradient(155deg,#3C4240,#141816)' } }),
+      React.createElement('div', { key: 'b', style: { background: 'linear-gradient(155deg,#2B302E,#0F1211)' } }),
+      React.createElement('div', { key: 'c', style: { background: 'linear-gradient(200deg,#343A38,#121514)' } }),
+      React.createElement('div', { key: 'd', style: { gridColumn: 'span 2', background: 'linear-gradient(165deg,#252A28,#0E100F)' } })
+    ]);
+    const panels = Array.from({ length: localFile ? 8 : 9 }, (_, i) => {
+      const idx = localFile && i >= 6 ? i + 1 : i;
+      const h = [300, 220, 260, 190, 320, 240, 54, 280, 230][idx];
+      const hue = HUES[((localFile ? localFile.hue : rsr.hue) + idx * 2) % HUES.length];
+      return {
+        h: h + 'px',
+        bg: idx === 6 ? 'none' : 'linear-gradient(170deg, color-mix(in oklab, ' + hue + ' 26%, ' + c.surf + '), ' + c.bg + ')',
+        divider: idx === 6 ? 'Chapter ' + (st.readerCh + 1) + ' — ' + this.chTitle(rsr, st.readerCh + 1) : null,
+        bubble: i === 1 || i === 4,
+        zoom: () => this.setState({ zoomOpen: true })
+      };
+    });
+    const scrollPct = Math.round((st.scrollY / Math.max(st.scrollMax, 1)) * 100);
+    const pagedTools = [
+      localFile
+        ? { label: 'Pages', d: 'M4 4h16v16H4zM4 9h16M9 4v16', fill: 'none', tap: (e) => { if (e) e.stopPropagation(); this.say(localFile.pages + ' pages · ' + localFile.kind + ' · on this device'); } }
+        : { label: 'Chapters', d: 'M4 6h16M4 12h16M4 18h16', fill: 'none', tap: (e) => { if (e) e.stopPropagation(); this.setState({ sheetOpen: true }); } },
+      localFile
+        ? { label: 'Fit', d: 'M4 8V4h4M20 8V4h-4M4 16v4h4M20 16v4h-4', fill: 'none', tap: (e) => { if (e) e.stopPropagation(); this.setState(s => ({ fit: (s.fit + 1) % 3 })); } }
+        : { label: 'Version', d: 'M4 7h10M4 7l3-3M4 7l3 3M20 17H10m10 0-3-3m3 3-3 3', fill: 'none', tap: (e) => { if (e) e.stopPropagation(); this.setState({ optSheet: 'version' }); } },
+      { label: st.rtl ? 'RTL' : 'LTR', d: 'M4 12h16M4 12l4-4M4 12l4 4', fill: 'none', tap: (e) => { if (e) e.stopPropagation(); this.setState(s => ({ rtl: !s.rtl })); } },
+      { label: 'Bookmark', d: 'M6 4h12v17l-6-4.5L6 21z', fill: st.bookmarks[(localFile ? localFile.id : rsr.id) + ':' + st.readerCh] ? c.a : 'none', tap: (e) => { if (e) e.stopPropagation(); const k = (localFile ? localFile.id : rsr.id) + ':' + st.readerCh; this.setState(s => { const b = Object.assign({}, s.bookmarks); if (b[k]) delete b[k]; else b[k] = true; return { bookmarks: b }; }); this.say(st.bookmarks[k] ? 'Bookmark removed' : 'Bookmarked'); } },
+      { label: 'Settings', d: 'M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6zM12 3v2M12 19v2M4 12H2M22 12h-2M5.5 5.5 7 7M17 17l1.5 1.5M18.5 5.5 17 7M7 17l-1.5 1.5', fill: 'none', tap: (e) => { if (e) e.stopPropagation(); this.setState({ optSheet: 'reader' }); } }
+    ];
+
+    // ---------- library ----------
+    const shelves = ['All', 'Reading', 'Completed', 'On Hold', 'Dropped', 'Plan to Read'];
+    const libTabs = shelves.map(label => ({
+      label, count: label === 'All' ? libIds.length : libIds.filter(id => st.lib[id] === label).length,
+      fg: st.libTab === label ? c.hi : c.dim, bd: st.libTab === label ? c.a : 'transparent',
+      tap: () => this.setState({ libTab: label })
+    }));
+    let shown = libIds.filter(id => st.libTab === 'All' || st.lib[id] === st.libTab);
+    if (st.sort === 'A–Z') shown = shown.sort((a, b) => this.series(a).name.localeCompare(this.series(b).name));
+    if (st.sort === 'Last updated') shown = shown.sort((a, b) => this.unread(b) - this.unread(a));
+    const libItems = shown.map(id => {
+      const s = this.series(id);
+      const n = st.progress[id] || 0;
+      return {
+        name: s.name, status: st.lib[id], bg: this.cover(s.hue), unread: this.unread(id),
+        progress: 'Ch ' + n + ' of ' + this.enCount(s), pct: Math.round((n / this.enCount(s)) * 100) + '%',
+        ring: st.menuId === id ? '2px solid ' + c.a : 'none',
+        tap: () => this.openSeries(id),
+        menu: (e) => { if (e) e.preventDefault(); this.setState({ menuId: id }); },
+        hold: () => { clearTimeout(this.holdT); this.holdT = setTimeout(() => this.setState({ menuId: id }), 420); },
+        release: () => clearTimeout(this.holdT)
+      };
+    });
+    const mid = st.menuId;
+    const ms = mid ? this.series(mid) : null;
+    const menuItems = !mid ? [] : [
+      { label: 'Mark as complete', color: c.text, d: 'M5 13l4 4L19 7', tap: () => { this.setState(s => ({ lib: Object.assign({}, s.lib, { [mid]: 'Completed' }), progress: Object.assign({}, s.progress, { [mid]: this.enCount(ms) }), menuId: null })); this.say(ms.name + ' marked complete'); } },
+      { label: 'Download all English ch.', color: c.text, d: 'M12 3v12m0 0 4-4m-4 4-4-4M4 20h16', tap: () => { this.setState(s => ({ dl: Object.assign({}, s.dl, { [mid]: Math.min(ms.total, 24) }), menuId: null })); this.say('Queued ' + Math.min(ms.total, 24) + ' chapters · wifi only'); } },
+      { label: 'Move to shelf…', color: c.text, d: 'M4 7h6l2 2h8v10H4z', tap: () => this.setState({ optSheet: 'shelf', seriesId: mid, menuId: null }) },
+      { label: st.notify[mid] ? 'Stop notifying' : 'Notify me of new ch.', color: c.text, d: 'M12 3a6 6 0 0 0-6 6c0 5-2 6-2 6h16s-2-1-2-6a6 6 0 0 0-6-6zM10 21h4', tap: () => { this.setState(s => { const nt = Object.assign({}, s.notify); if (nt[mid]) delete nt[mid]; else nt[mid] = true; return { notify: nt, menuId: null }; }); this.say(st.notify[mid] ? 'Notifications off' : 'Notify me on'); } },
+      { label: 'Remove from library', color: c.a, d: 'M5 7h14M9 7V4h6v3M7 7l1 13h8l1-13', tap: () => { this.setState(s => { const lib = Object.assign({}, s.lib); delete lib[mid]; return { lib, menuId: null }; }); this.say('Removed from library'); } }
+    ];
+
+    // ---------- downloads / storage ----------
+    const dlIds = Object.keys(st.dl).filter(id => st.dl[id] > 0);
+    const mbOf = id => st.dl[id] * 31;
+    const dlMb = dlIds.reduce((a, id) => a + mbOf(id), 0);
+    const cacheMb = st.cacheCleared ? 0 : 640;
+    const dlList = dlIds.map(id => {
+      const s = this.series(id);
+      const n = st.dl[id];
+      return {
+        name: s.name, bg: this.cover(s.hue), meta: n + ' chapters · ' + (mbOf(id) / 1024).toFixed(1) + ' GB · ' + this.groupFor(s),
+        state: 'Permanent · protected', open: st.dlOpen === id,
+        caret: st.dlOpen === id ? 'rotate(180deg)' : 'rotate(0deg)', rowBg: st.dlOpen === id ? c.surf2 : 'transparent',
+        toggle: () => this.setState(s2 => ({ dlOpen: s2.dlOpen === id ? null : id })),
+        remove: () => { this.setState(s2 => { const dl = Object.assign({}, s2.dl); delete dl[id]; return { dl, dlOpen: null }; }); this.say('Download deleted'); },
+        chapters: this.chNums(s, Math.min(n, 6)).map((num, i) => ({ label: 'Ch. ' + num + ' — ' + this.chTitle(s, num), size: SIZES[i % SIZES.length], read: () => this.read(id, num) }))
+      };
+    });
+    const cacheList = st.cacheCleared ? [] : ['solo', 'nightfall', 'ember'].map((id, i) => {
+      const s = this.series(id);
+      return { label: s.name + ' · ' + (i + 2) + ' chapters', size: [180, 260, 200][i] + ' MB', bg: this.cover(s.hue) };
+    });
+
+    // ---------- profile ----------
+    const chaptersRead = Object.keys(st.progress).reduce((a, id) => a + st.progress[id], 0);
+    const stats = [
+      { v: chaptersRead.toLocaleString(), k: 'Chapters read', color: c.hi },
+      { v: String(st.streak), k: 'Day streak', color: c.a },
+      { v: Math.round(chaptersRead * 0.075) + 'h', k: 'Hours spent', color: c.hi },
+      { v: String(Object.keys(st.follows).length), k: 'Series following', color: c.plt }
+    ];
+    const gcount = {};
+    libIds.forEach(id => this.series(id).genres.forEach(g => { gcount[g] = (gcount[g] || 0) + (st.progress[id] || 1); }));
+    const gtop = Object.keys(gcount).sort((a, b) => gcount[b] - gcount[a]).slice(0, 5);
+    const gmax = gtop.length ? gcount[gtop[0]] : 1;
+    const genreStats = gtop.map((g, i) => ({ label: g, n: gcount[g], pct: Math.round((gcount[g] / gmax) * 100) + '%', color: HUES[i % HUES.length] }));
+    const themes = ['Dark', 'Light', 'Sepia'].map(label => {
+      const t = THEMES[label];
+      return { label, sw: t.bg, ink: t.hi, ink2: t.mid, dot: t.p, bd: st.theme === label ? c.p : c.line, fg: st.theme === label ? c.hi : c.dim, tap: () => this.setState({ theme: label }) };
+    });
+    const tg = on => ({ hasToggle: true, trackBg: on ? c.p : c.line, knob: on ? 'translateX(18px)' : 'translateX(0px)' });
+    const settingDefs = [
+      { id: 'reader', label: 'Reader defaults', sub: (st.rtl ? 'RTL' : 'LTR') + ' manga · ' + FITS[st.fit] + ' · vertical manhwa', d: 'M4 5h7v14H4zM13 5h7v14h-7z',
+        rows: [
+          Object.assign({ label: 'Right-to-left for manga', tap: () => this.setState(s => ({ rtl: !s.rtl })) }, tg(st.rtl)),
+          Object.assign({ label: 'Double page in landscape', tap: () => this.setState(s => ({ doublePage: !s.doublePage })) }, tg(st.doublePage)),
+          Object.assign({ label: 'Volume keys turn pages', tap: () => this.setState(s => ({ volumeKeys: !s.volumeKeys })) }, tg(st.volumeKeys)),
+          { label: 'Fit mode', value: FITS[st.fit], hasToggle: false, tap: () => this.setState(s => ({ fit: (s.fit + 1) % 3 })) }
+        ],
+        note: 'Reader settings are remembered per series (mode, direction, zoom).' },
+      { id: 'storage', label: 'Downloads & storage', sub: ((dlMb + cacheMb) / 1024).toFixed(1) + ' GB used · keep ' + st.keepAhead + ' ahead', d: 'M4 6h16v5H4zM4 13h16v5H4zM8 8.5h.01M8 15.5h.01',
+        rows: [
+          Object.assign({ label: 'Download over wifi only', tap: () => this.setState(s => ({ wifiOnly: !s.wifiOnly })) }, tg(st.wifiOnly)),
+          Object.assign({ label: 'Data saver (lower-res on mobile)', tap: () => this.setState(s => ({ dataSaver: !s.dataSaver })) }, tg(st.dataSaver)),
+          { label: 'Keep next N chapters', value: String(st.keepAhead), hasToggle: false, tap: () => this.setState(s => ({ keepAhead: s.keepAhead >= 10 ? 1 : s.keepAhead + 2 })) }
+        ],
+        note: 'Downloads are permanent and storage-persisted. Read cache is evicted oldest-first.' },
+      { id: 'notify', label: 'Notifications', sub: st.notifyPush ? Object.keys(st.notify).length + ' series · batched digest' : 'Paused', d: 'M12 3a6 6 0 0 0-6 6c0 5-2 6-2 6h16s-2-1-2-6a6 6 0 0 0-6-6zM10 21h4',
+        rows: [
+          Object.assign({ label: 'New-chapter push', tap: () => this.setState(s => ({ notifyPush: !s.notifyPush })) }, tg(st.notifyPush)),
+          Object.assign({ label: 'Goal & streak reminders', tap: () => this.setState(s => ({ nightWarm: s.nightWarm })) }, tg(true))
+        ],
+        note: 'Polled every 30–60 min and delivered as one digest, not one push per chapter.' },
+      { id: 'comfort', label: 'Comfort', sub: (st.nightWarm ? 'Night warmth on' : 'Night warmth off') + ' · wake lock ' + (st.wakeLock ? 'on' : 'off'), d: 'M12 3a9 9 0 1 0 9 9c-5 1-10-4-9-9z',
+        rows: [
+          Object.assign({ label: 'Blue-light warmth at night', tap: () => this.setState(s => ({ nightWarm: !s.nightWarm })) }, tg(st.nightWarm)),
+          Object.assign({ label: 'Keep screen awake', tap: () => this.setState(s => ({ wakeLock: !s.wakeLock })) }, tg(st.wakeLock)),
+          Object.assign({ label: 'Immersive full screen', tap: () => this.setState(s => ({ immersive: !s.immersive })) }, tg(st.immersive))
+        ] },
+      { id: 'backup', label: 'Backup & local files', sub: 'Export library · open CBZ / PDF / folder', d: 'M12 3v12m0 0 4-4m-4 4-4-4M4 20h16',
+        rows: [
+          { label: 'Export library + progress', value: 'JSON', hasToggle: false, tap: () => this.say('yomu-backup.json exported') },
+          { label: 'Local files (CBZ / PDF / folder)', value: String(st.local.length), hasToggle: false, tap: () => this.go('local') }
+        ] },
+      { id: 'about', label: 'About Yomu', sub: 'v1.0 · personal-use client', d: 'M12 4a8 8 0 1 0 0 16 8 8 0 0 0 0-16zM12 11v5M12 8h.01',
+        rows: [], note: 'Personal-use PWA. Metadata and chapters from MangaDex; images proxied for CORS. Not distributed. Where a series is licensed in English, Yomu links to the official release.' }
+    ];
+    const settings = settingDefs.map(s => Object.assign({}, s, {
+      open: st.settingOpen === s.id, caret: st.settingOpen === s.id ? 'rotate(90deg)' : 'rotate(0deg)',
+      tap: () => this.setState(s2 => ({ settingOpen: s2.settingOpen === s.id ? null : s.id }))
+    }));
+
+    // ---------- option sheets ----------
+    let optTitle = '', optSub = '', optItems = [];
+    if (st.optSheet === 'version' && !localFile) {
+      const target = reading ? rsr : sr;
+      const pool = [
+        { g: this.groupFor(target), likes: '1.2k', src: 'MangaDex', cov: 'full run' },
+        { g: 'Lanternlight', likes: '840', src: 'MangaDex', cov: 'ch. 1–120' },
+        { g: 'Official (Webtoon)', likes: '2.1k', src: 'Official', cov: 'ch. 1–40' }
+      ];
+      optTitle = 'Switch version';
+      optSub = 'All English versions of ch. ' + (reading ? st.readerCh : (cur || 1)) + ' · preferred group with gap-fill';
+      optItems = pool.map(v => ({
+        label: v.g, sub: v.src + ' · ' + v.likes + ' likes · ' + v.cov,
+        bg: (st.versions[target.id] || this.groupFor(target)) === v.g ? c.pa : 'transparent',
+        fg: c.hi, check: (st.versions[target.id] || this.groupFor(target)) === v.g,
+        tap: () => { this.setState(s => ({ versions: Object.assign({}, s.versions, { [target.id]: v.g }), optSheet: null })); this.say('Reading ' + v.g + ' version'); }
+      }));
+    } else if (st.optSheet === 'shelf') {
+      optTitle = 'Move to shelf';
+      optSub = sr.name;
+      optItems = ['Reading', 'Completed', 'On Hold', 'Dropped', 'Plan to Read'].map(label => ({
+        label, bg: st.lib[sr.id] === label ? c.pa : 'transparent', fg: c.hi, check: st.lib[sr.id] === label,
+        tap: () => { this.setState(s => ({ lib: Object.assign({}, s.lib, { [sr.id]: label }), optSheet: null })); this.say('Moved to ' + label); }
+      }));
+    } else if (st.optSheet === 'download') {
+      optTitle = 'Download';
+      optSub = sr.name + ' · ' + (st.wifiOnly ? 'wifi only' : 'any network');
+      optItems = [
+        { label: 'This chapter', sub: 'Ch. ' + (cur || sr.total), fg: c.hi, bg: 'transparent', tap: () => { this.setState(s => ({ dl: Object.assign({}, s.dl, { [sr.id]: Math.max(s.dl[sr.id] || 0, 1) }), optSheet: null })); this.say('1 chapter queued'); } },
+        { label: 'Next 10 unread', sub: 'From ch. ' + ((cur || 0) + 1), fg: c.hi, bg: 'transparent', tap: () => { this.setState(s => ({ dl: Object.assign({}, s.dl, { [sr.id]: Math.max(s.dl[sr.id] || 0, 10) }), optSheet: null })); this.say('10 chapters queued'); } },
+        { label: 'Chapter range…', sub: 'e.g. 10–30', fg: c.hi, bg: 'transparent', tap: () => { this.setState(s => ({ dl: Object.assign({}, s.dl, { [sr.id]: Math.max(s.dl[sr.id] || 0, 21) }), optSheet: null })); this.say('Ch. 10–30 queued'); } },
+        { label: 'Entire series', sub: this.enCount(sr) + ' English chapters', fg: c.hi, bg: 'transparent', tap: () => { this.setState(s => ({ dl: Object.assign({}, s.dl, { [sr.id]: Math.min(sr.total, 30) }), optSheet: null })); this.say('Series queued · ' + (st.wifiOnly ? 'waiting for wifi' : 'downloading')); } },
+        { label: 'Auto-keep next ' + st.keepAhead + ' ahead', sub: 'Keeps reading buffered offline', value: 'On', fg: c.hi, bg: c.pa, tap: () => { this.setState({ optSheet: null }); this.say('Auto-keep ' + st.keepAhead + ' ahead is on'); } }
+      ];
+    } else if (st.optSheet === 'reader') {
+      optTitle = 'Reader settings';
+      optSub = localFile ? localFile.name + ' · remembered for this file' : rsr.name + ' · remembered for this series';
+      optItems = [
+        { label: 'Direction', value: st.rtl ? 'RTL' : 'LTR', fg: c.hi, bg: 'transparent', tap: () => this.setState(s => ({ rtl: !s.rtl })) },
+        { label: 'Fit', value: FITS[st.fit], fg: c.hi, bg: 'transparent', tap: () => this.setState(s => ({ fit: (s.fit + 1) % 3 })) },
+        { label: 'Page gap colour', value: st.gapWhite ? 'White' : 'Black', fg: c.hi, bg: 'transparent', tap: () => this.setState(s => ({ gapWhite: !s.gapWhite })) },
+        { label: 'Brightness dim', value: Math.round(st.brightness * 100) + '%', fg: c.hi, bg: 'transparent', tap: () => this.setState(s => ({ brightness: s.brightness >= 0.5 ? 0 : s.brightness + 0.125 })) },
+        { label: 'Double page (landscape)', value: st.doublePage ? 'On' : 'Off', fg: c.hi, bg: 'transparent', tap: () => this.setState(s => ({ doublePage: !s.doublePage })) },
+        { label: 'Edge tap / volume keys', value: st.volumeKeys ? 'Both' : 'Tap only', fg: c.hi, bg: 'transparent', tap: () => this.setState(s => ({ volumeKeys: !s.volumeKeys })) },
+        { label: 'Auto-scroll (vertical)', value: st.autoScroll ? 'On · ' + st.speed + 'x' : 'Off', fg: c.hi, bg: 'transparent', tap: () => { this.setState(s => ({ autoScroll: !s.autoScroll }), () => this.autoTick()); } }
+      ];
+    }
+
+    // ---------- sheets / nav ----------
+    const sheetSeries = reading ? rsr : sr;
+    const sheetChapters = this.chNums(sheetSeries, 40).map(n => ({
+      label: 'Chapter ' + n, sub: this.downloaded(sheetSeries.id, n) ? 'Offline' : this.chTitle(sheetSeries, n),
+      rowBg: reading && st.readerCh === n ? c.pa : 'transparent',
+      titleColor: reading && st.readerCh === n ? c.plt : c.hi,
+      read: () => this.read(sheetSeries.id, n)
+    }));
+    const navDefs = [
+      ['home', 'Home', 'm3 10 9-7 9 7v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z', 0],
+      ['search', 'Search', 'M11 3a8 8 0 1 0 0 16 8 8 0 0 0 0-16zM21 21l-4.4-4.4', 0],
+      ['library', 'Library', 'M4 3h5v18H4zM11 3h5v18h-5zM18.4 4.2 21 20', unreadTotal],
+      ['downloads', 'Storage', 'M12 3v12m0 0 4-4m-4 4-4-4M4 20h16', 0],
+      ['profile', 'Profile', 'M12 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM4 21c0-4 3.6-6 8-6s8 2 8 6', 0]
+    ];
+    const onbStep = ONB[Math.min(st.onboardStep, 2)];
+    const unreadFeed = Object.keys(st.follows).concat(['ember', 'starbound']).filter((v, i, a) => a.indexOf(v) === i).map(id => {
+      const s = this.series(id);
+      const n = this.unread(id) || 1;
+      const top = this.enCount(s);
+      return { name: s.name, bg: this.cover(s.hue), count: n, chapter: 'Ch. ' + top + ' — ' + this.chTitle(s, top), meta: this.groupFor(s) + ' · ' + (id.length % 5 + 1) + 'h ago', read: () => this.read(id, top) };
+    });
+
+    return {
+      c,
+      screenLabel: reading ? (st.readerMode === 'paged' ? 'Manga reader' : 'Manhwa reader') : (st.screen === 'downloads' ? 'storage' : st.screen),
+      avatarBg: 'linear-gradient(140deg,' + c.p + ',' + c.a + ')',
+      initial: st.signedIn ? 'R' : 'Y',
+      isHome: st.screen === 'home', isSearch: st.screen === 'search', isDetail: st.screen === 'detail',
+      isLibrary: st.screen === 'library', isDownloads: st.screen === 'downloads', isProfile: st.screen === 'profile',
+      isUnread: st.screen === 'unread', isLocal: st.screen === 'local',
+      localSub: st.local.length + ' imported · stays on this device, never uploaded',
+      localSize: st.local.length ? st.local.reduce((a, l) => a + parseInt(l.size, 10), 0) + ' MB' : '0 MB',
+      importSources: [
+        { label: 'CBZ / CBR', sub: 'Comic archive', d: 'M4 4h16v16H4zM4 9h16M9 4v16', tap: () => this.startImport('CBZ', 'Hanzu vol. 03.cbz') },
+        { label: 'PDF', sub: 'Scanned book', d: 'M6 3h8l4 4v14H6zM14 3v4h4', tap: () => this.startImport('PDF', 'doujin-scan.pdf') },
+        { label: 'Folder', sub: 'Loose images', d: 'M4 7h6l2 2h8v10H4z', tap: () => this.startImport('Folder', '/Downloads/ch-88/') }
+      ],
+      importing: !!st.importing,
+      importName: st.importing ? st.importing.file : '',
+      importStage: st.importing ? st.importing.stage : '',
+      importPct: st.importing ? st.importing.pct + '%' : '0%',
+      importNote: st.importing ? (st.importing.kind === 'PDF' ? 'Rendering pages at device resolution — nothing leaves the device.' : 'Reading entries and natural-sorting page names — nothing leaves the device.') : '',
+      localItems: st.local.map(l => ({
+        name: l.name, kind: l.kind, bg: this.cover(l.hue),
+        meta: l.pages + ' pages · ' + l.size + ' · ' + l.mode,
+        sub: l.read ? 'Resume page ' + l.read : 'Not started',
+        read: () => { clearInterval(this.autoT); this.setState({ screen: 'reader', readerId: null, localId: l.id, readerCh: 1, readerMode: l.mode === 'Paged RTL' ? 'paged' : 'scroll', page: l.read || 1, hud: true, scrollY: 0, autoScroll: false }); },
+        remove: (e) => { if (e) e.stopPropagation(); this.setState(s => ({ local: s.local.filter(x => x.id !== l.id) })); this.say('Removed from device'); }
+      })),
+      localEmpty: st.local.length === 0,
+      isPaged: reading && st.readerMode === 'paged', isScroll: reading && st.readerMode === 'scroll',
+      showNav: ['home', 'search', 'library', 'downloads', 'profile'].includes(st.screen),
+      navItems: navDefs.map(([id, label, d, badge]) => ({ label, d, badge: id === 'library' ? badge : 0, color: st.screen === id ? c.plt : c.dim, tap: () => this.go(id) })),
+      showOfflineBanner: st.offline && !reading,
+      offlineChipLabel: st.offline ? 'Offline' : 'Online',
+      offlineChipFg: st.offline ? '#E4804A' : '#6C7A74',
+      offlineChipBd: st.offline ? '#E4804A' : '#242C28',
+      toggleOffline: () => { this.setState(s => ({ offline: !s.offline })); },
+      reset: () => { try { localStorage.removeItem('yomu:v2'); } catch (e) {} window.location.reload(); },
+
+      onboarding: !st.onboarded,
+      onb: Object.assign({}, onbStep, {
+        bg: this.cover(st.onboardStep * 2),
+        next: () => { if (st.onboardStep >= 2) { this.setState({ signedIn: true, onboarded: true }); this.say('Signed in · library syncing'); } else this.setState(s => ({ onboardStep: s.onboardStep + 1 })); }
+      }),
+      onbDots: [0, 1, 2].map(i => ({ bg: i === Math.min(st.onboardStep, 2) ? c.a : c.line })),
+      skipOnboarding: () => this.setState({ onboarded: true, screen: 'home' }),
+
+      hero: { name: hero.name, type: hero.type, bg: this.cover(hero.hue), meta: hero.genres.slice(0, 2).join(' · ') + ' · ' + this.enCount(hero) + ' EN chapters', cta: st.progress[hero.id] ? 'Continue ch. ' + st.progress[hero.id] : 'Read now', read: () => this.read(hero.id, st.progress[hero.id] || 1), open: () => this.openSeries(hero.id) },
+      rows, unreadTotal,
+      goSearch: () => this.go('search'), goProfile: () => this.go('profile'), goUnread: () => this.go('unread'),
+
+      query: st.query, hasQuery: !!st.query,
+      searchPlaceholder: scopeLib ? 'Search my library' : 'Titles, authors, genres',
+      setQuery: (e) => this.setState({ query: e.target.value }),
+      clearQuery: () => this.setState({ query: '' }),
+      saveSearch: () => { const v = st.query.trim(); if (!v) return; this.setState(s => ({ saved: s.saved.includes(v) ? s.saved : s.saved.concat(v) })); this.say('Search saved'); },
+      scope: st.scope, toggleScope: () => this.setState(s => ({ scope: s.scope === 'Global' ? 'Library' : 'Global' })),
+      scopeGlobalBg: scopeLib ? 'transparent' : c.p, scopeGlobalFg: scopeLib ? c.dim : c.onp,
+      scopeLibBg: scopeLib ? c.p : 'transparent', scopeLibFg: scopeLib ? c.onp : c.dim,
+      filters, mdUnreachable,
+      showResults: !mdUnreachable, showRecents: !mdUnreachable && !q,
+      retry: () => { this.setState({ offline: false }); this.say('Reconnected'); },
+      searchLibrary: () => this.setState({ scope: 'Library' }),
+      resultCount: matches.length + (matches.length === 1 ? ' result' : ' results') + (scopeLib ? ' in library' : ''),
+      results: matches.map(s => ({ name: s.name, sub: this.enCount(s) + ' EN ch · ' + s.status, type: s.type, bg: this.cover(s.hue), inLib: libIds.includes(s.id), tap: () => this.openSeries(s.id) })),
+      hasSaved: st.saved.length > 0,
+      saved: st.saved.map(v => ({ label: v, tap: () => this.setState({ query: v.split(' · ')[0] === v ? v : '', filter: v.includes('Ongoing') ? 'Ongoing' : st.filter }) })),
+      recents: st.recents.map(r => ({ label: r, tap: () => this.setState({ query: r }), remove: (e) => { if (e) e.stopPropagation(); this.setState(s => ({ recents: s.recents.filter(x => x !== r) })); } })),
+      clearRecents: () => this.setState({ recents: [] }),
+
+      series: { name: sr.name, author: sr.author, type: sr.type, status: sr.status, total: sr.total, enCount: this.enCount(sr), rating: sr.rating, votes: sr.votes, genres: sr.genres, bg: this.cover(sr.hue), licensed: sr.licensed, group: version },
+      unreadHere: this.unread(sr.id),
+      back: () => { const p = st.prev; this.go(!p || p === st.screen || p === 'detail' || p === 'reader' ? (st.screen === 'local' ? 'profile' : 'home') : p); },
+      followLabel: followed ? 'Following' : 'Follow',
+      followBg: followed ? c.pa : c.surf, followFg: followed ? c.plt : c.text,
+      toggleFollow: () => { const on = !followed; this.setState(s => { const fl = Object.assign({}, s.follows); if (on) fl[sr.id] = true; else delete fl[sr.id]; return { follows: fl }; }); this.say(on ? 'Following ' + sr.name : 'Unfollowed'); },
+      notifyFill: notified ? c.a : 'none', notifyStroke: notified ? c.a : c.hi,
+      toggleNotify: () => { this.setState(s => { const nt = Object.assign({}, s.notify); if (nt[sr.id]) delete nt[sr.id]; else nt[sr.id] = true; return { notify: nt }; }); this.say(notified ? 'Notifications off for this series' : 'You will get a digest for new chapters'); },
+      shelfLabel: st.lib[sr.id] || 'Add to shelf',
+      openShelfSheet: () => this.setState({ optSheet: 'shelf' }),
+      openDownloadSheet: () => this.setState({ optSheet: 'download' }),
+      openVersionSheet: (e) => { if (e) e.stopPropagation(); this.setState({ optSheet: 'version' }); },
+      officialLink: (e) => { if (e) e.stopPropagation(); this.say('Opening the official English release'); },
+      synText: st.synOpen || sr.syn.length < 150 ? sr.syn : sr.syn.slice(0, 148) + '…',
+      synToggle: sr.syn.length < 150 ? '' : (st.synOpen ? 'Read less' : 'Read more'),
+      toggleSyn: () => this.setState(s => ({ synOpen: !s.synOpen })),
+      orderLabel: st.order === 'new' ? 'Newest first' : 'Oldest first',
+      toggleOrder: () => this.setState(s => ({ order: s.order === 'new' ? 'old' : 'new' })),
+      chapters,
+      gapNote: sr.gaps ? sr.gaps + ' chapters have no English release and are not listed — numbering gaps are shown as they are.' : 'Every chapter has an English release.',
+      ctaLabel: cur ? 'Continue · Ch. ' + cur : 'Start reading · Ch. ' + Math.min.apply(null, nums),
+      startReading: () => this.read(sr.id, cur || Math.min.apply(null, nums)),
+
+      pageEl, pageNum: st.page, pageTotal, pagePct: Math.round((st.page / pageTotal) * 100) + '%',
+      gapColor: st.gapWhite ? '#E9E9E9' : c.black,
+      dim: st.brightness,
+      curlBadge: curlOk ? '3D curl · WebGL' : 'Slide fallback',
+      barDir: st.rtl ? 'rtl' : 'ltr',
+      arrowLeft: st.rtl ? 'M15 5l-7 7 7 7' : 'M15 5l-7 7 7 7',
+      arrowRight: 'M9 5l7 7-7 7',
+      versionLabel: localFile ? localFile.kind + ' · on this device' : version,
+      readerChapter: localFile ? localFile.name : 'Ch. ' + st.readerCh + ' — ' + this.chTitle(rsr, st.readerCh),
+      readerSeries: localFile ? 'Local file' : rsr.name,
+      isLocalReading: !!localFile, isOnlineReading: !localFile,
+      localReaderMeta: localFile ? localFile.kind + ' · ' + localFile.pages + ' pages · ' + localFile.size : '',
+      endNote: localFile ? 'End of this imported file.' : 'Keep scrolling — the next chapter loads inline.',
+      endCta: localFile ? 'Back to local files' : 'Back to series',
+      hudOpacity: st.hud ? 1 : 0,
+      toggleHud: () => this.setState(s => ({ hud: !s.hud })),
+      pagedTools,
+      nextPage: (e) => { if (e) e.stopPropagation(); clearTimeout(this.flipT); this.setState(s => ({ page: Math.min(pageTotal, s.page + 1), flip: 1 })); this.flipT = setTimeout(() => this.setState({ flip: 0 }), 60); },
+      prevPage: (e) => { if (e) e.stopPropagation(); clearTimeout(this.flipT); this.setState(s => ({ page: Math.max(1, s.page - 1), flip: -1 })); this.flipT = setTimeout(() => this.setState({ flip: 0 }), 60); },
+      nextChapter: () => { if (localFile) { this.say('Single imported file — no next chapter'); return; } this.read(rsr.id, Math.min(rsr.total, st.readerCh + 1)); },
+      prevChapter: () => { if (localFile) { this.say('Single imported file — no previous chapter'); return; } this.read(rsr.id, Math.max(1, st.readerCh - 1)); },
+      exitReader: (e) => {
+        if (e) e.stopPropagation();
+        clearInterval(this.autoT);
+        if (localFile) {
+          this.setState(s => ({ screen: 'local', autoScroll: false, localId: null, local: s.local.map(l => l.id === localFile.id ? Object.assign({}, l, { read: s.page }) : l) }));
+          return;
+        }
+        this.setState(s => ({ screen: 'detail', autoScroll: false, seriesId: s.readerId || s.seriesId }));
+      },
+      openReaderSettings: (e) => { if (e) e.stopPropagation(); this.setState({ optSheet: 'reader' }); },
+      openChapterList: (e) => { if (e) e.stopPropagation(); if (localFile) { this.say(localFile.pages + ' pages · single imported file'); return; } this.setState({ sheetOpen: true }); },
+
+      panels, scrollPct: scrollPct + '%',
+      scrollThumb: Math.round((scrollPct / 100) * 540) + 'px',
+      topOpacity: st.scrollY > 60 ? 0 : 1, topPointer: st.scrollY > 60 ? 'none' : 'auto',
+      scrollRef: (el) => { this.scrollEl = el; },
+      onReaderScroll: (e) => { const el = e.target; this.setState({ scrollY: el.scrollTop, scrollMax: el.scrollHeight - el.clientHeight }); },
+      autoScroll: st.autoScroll, autoFill: st.autoScroll ? c.a : 'none',
+      speedLabel: st.speed + '×',
+      toggleAutoScroll: (e) => { if (e) e.stopPropagation(); this.setState(s => ({ autoScroll: !s.autoScroll }), () => this.autoTick()); },
+      slower: () => this.setState(s => ({ speed: Math.max(1, s.speed - 1) }), () => this.autoTick()),
+      faster: () => this.setState(s => ({ speed: Math.min(6, s.speed + 1) }), () => this.autoTick()),
+      zoomOpen: st.zoomOpen, zoomLabel: 'Tap-zoom at point · bubble snap when available',
+      closeZoom: () => this.setState({ zoomOpen: false }),
+
+      libTabs, libItems, libEmpty: libItems.length === 0,
+      sortLabel: st.sort,
+      cycleSort: () => { const order = ['Recently read', 'A–Z', 'Last updated']; const next = order[(order.indexOf(st.sort) + 1) % 3]; this.setState({ sort: next }); },
+      dupWarning: st.dupSeen ? '' : '“Ashborne” also appears as “Ash Born” from another group — tracking both would split your progress.',
+      dismissDup: (e) => { if (e) e.stopPropagation(); this.setState({ dupSeen: true }); this.say('Entries merged'); },
+      menuOpen: !!mid, menuTitle: ms ? ms.name : '', menuItems,
+      closeMenu: () => this.setState({ menuId: null }),
+
+      dlList, dlEmpty: dlList.length === 0, cacheList, keepAhead: st.keepAhead,
+      storageUsed: ((dlMb + cacheMb) / 1024).toFixed(1) + ' GB',
+      dlPct: Math.min(100, Math.round((dlMb / 8192) * 100)) + '%',
+      cachePct: Math.min(100, Math.round((cacheMb / 8192) * 100)) + '%',
+      clearCache: (e) => { if (e) e.stopPropagation(); this.setState({ cacheCleared: true }); this.say('Read cache cleared · downloads kept'); },
+
+      unreadFeed, markAllRead: () => { this.setState(s => { const pr = Object.assign({}, s.progress); Object.keys(s.follows).forEach(id => { pr[id] = this.enCount(this.series(id)); }); return { progress: pr }; }); this.say('All caught up'); },
+
+      accountName: st.signedIn ? 'rin.kurose' : 'Local account',
+      accountSub: st.signedIn ? 'Google · synced just now' : 'Not signed in — everything stays on this device',
+      authLabel: st.signedIn ? 'Sign out' : 'Sign in',
+      authBg: st.signedIn ? 'transparent' : c.p, authFg: st.signedIn ? c.text : c.onp,
+      toggleAuth: () => { this.setState(s => ({ signedIn: !s.signedIn })); this.say(st.signedIn ? 'Signed out · local only' : 'Signed in · library syncing'); },
+      stats, genreStats, themes, settings,
+      goal: st.goal, goalToday: st.todayRead + ' of ' + st.goal, goalPct: Math.min(100, Math.round((st.todayRead / st.goal) * 100)) + '%', streak: st.streak,
+      cycleGoal: () => this.setState(s => ({ goal: s.goal >= 10 ? 1 : s.goal + 1 })),
+
+      sheetOpen: st.sheetOpen, sheetChapters, closeSheet: () => this.setState({ sheetOpen: false }),
+      optSheet: st.optSheet, optTitle, optSub, optItems, closeOptSheet: () => this.setState({ optSheet: null }),
+
+      blockOpen: !!st.blockCh,
+      blockText: st.blockCh ? 'Chapter ' + st.blockCh.n + ' of ' + this.series(st.blockCh.id).name + ' is not downloaded, and you are offline. Downloaded chapters are still available.' : '',
+      closeBlock: () => this.setState({ blockCh: null }),
+      goOnlineAndRead: () => { const b = st.blockCh; this.setState({ offline: false, blockCh: null }, () => { if (b) this.read(b.id, b.n); }); },
+
+      toast: st.toast
+    };
+  }
+}
+
+</script>
+</body>
+</html>

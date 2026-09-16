@@ -31,7 +31,7 @@ export default function PagedRenderer({
 }: Props) {
   const dir: Direction = rtl ? 'rtl' : 'ltr'
   const chapter = chapters[chapterIndex]
-  const { pages, isLoading, isError } = useChapterPages(chapter?.id)
+  const { pages, isLoading, isError } = useChapterPages(chapter?.id, 'source', chapter?.source ?? 'mangadex')
   const [page, setPage] = useState(0)
   const [turning, setTurning] = useState<'left' | 'right' | null>(null)
   const [hudVisible, setHudVisible] = useState(true)

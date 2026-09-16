@@ -12,6 +12,7 @@ import { hasSeenOnboarding } from './features/onboarding/Onboarding'
 import type { SeriesType } from './lib/db/schema'
 
 type Tab = 'home' | 'search' | 'library' | 'local' | 'profile'
+export type SeriesSource = 'mangadex' | 'kakalot'
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'home', label: 'Home', icon: '🏠' },
@@ -23,7 +24,7 @@ const TABS: { id: Tab; label: string; icon: string }[] = [
 
 export default function App() {
   const [tab, setTab] = useState<Tab>('home')
-  const [reading, setReading] = useState<{ id: string; type: SeriesType } | null>(null)
+  const [reading, setReading] = useState<{ id: string; source: SeriesSource; type: SeriesType } | null>(null)
   const [onboarding, setOnboarding] = useState<boolean | null>(null)
 
   useEffect(() => {
@@ -31,17 +32,18 @@ export default function App() {
     hasSeenOnboarding().then((seen) => setOnboarding(!seen))
   }, [])
 
-  if (onboarding === null) return null // brief flash-guard while checking the flag
+  if (onboarding === null) return null
   if (onboarding) return <OnboardingScreen onDone={() => setOnboarding(false)} />
 
-  // Series type is refined from MangaDex tags in Phase 5; default manga for reader mode now.
-  const openSeries = (id: string) => setReading({ id, type: 'manga' })
+  const openSeries = (id: string, source: SeriesSource = 'mangadex') =>
+    setReading({ id, source, type: 'manga' })
 
   if (reading) {
     return (
       <div className="h-screen">
         <ReaderShell
           seriesId={reading.id}
+          seriesSource={reading.source}
           seriesType={reading.type}
           onClose={() => setReading(null)}
         />

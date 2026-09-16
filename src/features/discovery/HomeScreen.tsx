@@ -3,6 +3,7 @@
 
 import { usePopular, useLatestUpdates, type MDManga } from '../../lib/mangadex/queries'
 import SeriesCard from './SeriesCard'
+import type { SeriesSource } from '../../App'
 
 function Row({
   title,
@@ -13,7 +14,7 @@ function Row({
   title: string
   items: MDManga[]
   loading: boolean
-  onOpen: (id: string) => void
+  onOpen: (id: string, source: SeriesSource) => void
 }) {
   return (
     <section className="mb-6">
@@ -28,7 +29,7 @@ function Row({
   )
 }
 
-export default function HomeScreen({ onOpen }: { onOpen: (id: string) => void }) {
+export default function HomeScreen({ onOpen }: { onOpen: (id: string, source: SeriesSource) => void }) {
   const popular = usePopular()
   const latest = useLatestUpdates()
 
