@@ -1,10 +1,10 @@
-// Zoomable image (FR-9): tap-to-zoom-at-point, double-tap cycles 1x->2x->3x, pinch, pan.
+// Zoomable image (FR-9): pinch-to-zoom + pan while zoomed; single tap toggles the HUD.
+// Double-tap zoom removed by owner request (it fired accidentally while reading).
 // Uses pure zoomMath so the tricky part is already tested.
 
 import { useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import {
   identity,
-  cycleScale,
   zoomToPoint,
   clampPan,
   toCss,
@@ -21,12 +21,10 @@ interface Props {
 export default function ZoomableImage({ src, alt = '', onZoomChange, onTap }: Props) {
   const ref = useRef<HTMLDivElement>(null)
   const [t, setT] = useState<Transform>(identity())
-  const lastTap = useRef(0)
   const pan = useRef<{ x: number; y: number; tx: number; ty: number } | null>(null)
   const pinch = useRef<{ dist: number; scale: number } | null>(null)
   const pointers = useRef(new Map<number, { x: number; y: number }>())
   const downPos = useRef<{ x: number; y: number } | null>(null)
-  const tapTimer = useRef<number | undefined>(undefined)
 
   function size() {
     const r = ref.current?.getBoundingClientRect()
@@ -55,17 +53,6 @@ export default function ZoomableImage({ src, alt = '', onZoomChange, onTap }: Pr
       return
     }
 
-    // Double-tap detection.
-    const nowMs = e.timeStamp
-    if (nowMs - lastTap.current < 300) {
-      window.clearTimeout(tapTimer.current) // cancel pending single-tap
-      const { px, py } = localPoint(e)
-      apply(zoomToPoint(t, cycleScale(t.scale), px, py))
-      lastTap.current = 0
-      return
-    }
-    lastTap.current = nowMs
-
     if (t.scale > 1) pan.current = { x: e.clientX, y: e.clientY, tx: t.tx, ty: t.ty }
   }
 
@@ -93,14 +80,14 @@ export default function ZoomableImage({ src, alt = '', onZoomChange, onTap }: Pr
   }
 
   function onPointerUp(e: ReactPointerEvent) {
-    // Single-tap (small movement, no zoom/pinch): toggle HUD after the double-tap window.
+    // Single-tap (small movement, not a pinch, not zoomed): toggle HUD immediately —
+    // no double-tap gesture exists anymore, so no disambiguation delay needed.
     if (
       onTap && downPos.current && pointers.current.size === 1 && !pinch.current &&
       t.scale === 1 &&
       Math.hypot(e.clientX - downPos.current.x, e.clientY - downPos.current.y) < 10
     ) {
-      window.clearTimeout(tapTimer.current)
-      tapTimer.current = window.setTimeout(() => onTap(), 300)
+      onTap()
     }
     pointers.current.delete(e.pointerId)
     if (pointers.current.size < 2) pinch.current = null
