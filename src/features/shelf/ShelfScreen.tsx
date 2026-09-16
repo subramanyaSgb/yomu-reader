@@ -2,7 +2,7 @@
 // three grids over the curated catalog (src/catalog.ts) — no external discovery.
 
 import { useEffect, useRef, useState } from 'react'
-import { Search, X, CalendarClock, Settings, History } from 'lucide-react'
+import { Search, X, CalendarClock, Settings, History, BarChart3 } from 'lucide-react'
 import { useQuery, useQueries } from '@tanstack/react-query'
 import { CATALOG, type CatalogEntry } from '../../catalog'
 import { kkCoverUrl, kkChapters, kkHealth } from '../../lib/kakalot/client'
@@ -22,6 +22,13 @@ interface CardInfo { pct?: number; lastNumber?: string | null; at?: number; auto
 
 // Session guard so auto-download runs once per series per app session.
 const autoDownloaded = new Set<string>()
+
+// Top genres across the catalog (module-level: catalog is static).
+const TOP_GENRES: string[] = (() => {
+  const freq = new Map<string, number>()
+  for (const e of CATALOG) for (const g of e.genres ?? []) freq.set(g, (freq.get(g) ?? 0) + 1)
+  return [...freq.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10).map(([g]) => g)
+})()
 
 const SHELF_TITLE: Record<Shelf, string> = {
   reading: 'Reading',
@@ -79,11 +86,13 @@ export default function ShelfScreen({
   onOpen,
   onUpcoming,
   onHistory,
+  onStats,
 }: {
   shelf: Shelf
   onOpen: (id: string, source: SeriesSource) => void
   onUpcoming?: () => void
   onHistory?: () => void
+  onStats?: () => void
 }) {
   const { shelves, loaded } = useShelves()
   const [term, setTerm] = useState('')
@@ -183,9 +192,12 @@ export default function ShelfScreen({
     return () => { alive = false }
   }, [shelf])
 
+  // Genre filter chips (top genres across the catalog, computed once per module load)
+  const [genre, setGenre] = useState<string | null>(null)
   const entries = CATALOG.filter(e =>
     shelfOf(shelves, e.id || e.title) === shelf &&
-    (!q || e.title.toLowerCase().includes(q) || e.wcTitle.toLowerCase().includes(q)),
+    (!q || e.title.toLowerCase().includes(q) || e.wcTitle.toLowerCase().includes(q)) &&
+    (!genre || e.genres?.includes(genre)),
   )
   // Reading shelf: most recently read first.
   if (shelf === 'reading') {
@@ -250,9 +262,24 @@ export default function ShelfScreen({
         )}
       </div>
 
+      {/* Genre chips */}
+      {TOP_GENRES.length > 0 && (
+        <div className="hide-scrollbar" style={{ display: 'flex', gap: 8, overflowX: 'auto', padding: '0 18px 14px' }}>
+          {[null, ...TOP_GENRES].map(g => (
+            <button key={g ?? 'all'} onClick={() => setGenre(g)} style={{
+              height: 32, padding: '0 13px', borderRadius: 9, flexShrink: 0,
+              border: '1px solid var(--y-line)', cursor: 'pointer',
+              background: genre === g ? 'var(--y-p)' : 'var(--y-surf)',
+              color: genre === g ? 'var(--y-onp)' : 'var(--y-mid)',
+              fontSize: 11.5, fontWeight: 700, whiteSpace: 'nowrap',
+            }}>{g ?? 'All'}</button>
+          ))}
+        </div>
+      )}
+
       {loaded && entries.length === 0 && (
         <p style={{ fontSize: 12.5, fontWeight: 500, color: 'var(--y-dim)', padding: '24px 18px', textAlign: 'center', lineHeight: 1.6 }}>
-          {q ? `No matches for “${term.trim()}” on this shelf.` : EMPTY_HINT[shelf]}
+          {q || genre ? 'No matches on this shelf with the current filters.' : EMPTY_HINT[shelf]}
         </p>
       )}
 
@@ -289,6 +316,12 @@ export default function ShelfScreen({
                 }
               }} />
             {backupMsg && <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--y-ok)', marginBottom: 10 }}>{backupMsg}</div>}
+            {onStats && (
+              <button onClick={() => { setBackupSheet(false); onStats() }}
+                style={{ width: '100%', height: 48, borderRadius: 12, border: '1px solid var(--y-line)', background: 'var(--y-surf2)', color: 'var(--y-hi)', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', marginBottom: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                <BarChart3 size={16} /> Reading stats
+              </button>
+            )}
             {/* Notifications */}
             <div style={{ borderTop: '1px solid var(--y-line)', paddingTop: 14, marginTop: 4, marginBottom: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--y-hi)' }}>New-chapter notifications</span>

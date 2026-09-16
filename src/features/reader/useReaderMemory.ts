@@ -18,6 +18,10 @@ export interface ReaderMemory {
   brightness: number // 0..1 dim overlay (0 = none)
   quality?: ImageQuality // 'source' | 'low' (data saver, MangaDex only)
   autoSpeed?: number // auto-scroll px/tick (vertical mode)
+  stripWidth?: number // vertical strip max width % (100 | 70 | 50) — desktop comfort
+  tint?: 'none' | 'warm' | 'sepia' // color overlay for night reading
+  spread?: boolean // paged mode: two-page spread
+  markOn?: 'open' | 'end' // when a chapter counts as read
 }
 
 export const DEFAULT_MEMORY: ReaderMemory = {

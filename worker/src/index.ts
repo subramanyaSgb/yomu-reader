@@ -40,6 +40,30 @@ async function comizyGet(path: string): Promise<any | null> {
   return res.json()
 }
 
+/** Comizy search (for per-series source switching): results in the same shape as WC. */
+async function buddySearch(query: string, workerOrigin: string): Promise<KakalotManga[]> {
+  const res = await fetch(`https://comizy.io/search?q=${encodeURIComponent(query.trim())}`, {
+    headers: { 'User-Agent': BROWSER_UA, Accept: 'text/html,*/*;q=0.8', Referer: COMIZY_REF },
+    cf: { cacheEverything: true, cacheTtl: 600 },
+  })
+  if (!res.ok) return []
+  const html = await res.text()
+  const jsonText = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]+?)<\/script>/)?.[1]
+  if (!jsonText) return []
+  try {
+    const items: any[] = JSON.parse(jsonText)?.props?.pageProps?.ssrItems ?? []
+    return items.slice(0, 8).map((it) => ({
+      id: `buddy:${it.id}:${it.slug}`,
+      title: it.name ?? it.slug,
+      cover: it.cover ? proxiedImageUrl(workerOrigin, it.cover) : '',
+      kind: 'manhwa',
+      source: 'kakalot' as const,
+    }))
+  } catch {
+    return []
+  }
+}
+
 async function buddyChapters(
   id: string, // buddy:{titleId}:{mangaSlug}
   workerOrigin: string,
@@ -528,7 +552,9 @@ export default {
         if (action === 'search') {
           const q = url.searchParams.get('q') ?? ''
           if (!q) return json({ results: [] }, origin)
-          const results = await scrapeSearch(q, url.origin)
+          const results = url.searchParams.get('src') === 'buddy'
+            ? await buddySearch(q, url.origin)
+            : await scrapeSearch(q, url.origin)
           // Only cache non-empty results (an empty set may be a transient upstream hiccup)
           return json({ results }, origin, 200, results.length ? 600 : 0)
         }

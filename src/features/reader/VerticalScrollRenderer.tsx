@@ -18,6 +18,7 @@ interface Props {
   chapters: ChapterRef[] // resolved, ordered
   startIndex: number
   quality?: ImageQuality
+  stripWidthPct?: number // max strip width (desktop comfort); 100 = edge-to-edge
   initialAnchor?: ScrollAnchor | null // exact-position resume within the start chapter
   onChapterChange?: (chapterIndex: number) => void
   onProgressChange?: (pct: number) => void // % through the current chapter
@@ -47,6 +48,7 @@ export default function VerticalScrollRenderer({
   chapters,
   startIndex,
   quality = 'source',
+  stripWidthPct = 100,
   initialAnchor = null,
   onChapterChange,
   onProgressChange,
@@ -190,6 +192,7 @@ export default function VerticalScrollRenderer({
 
   return (
     <div ref={scroller} onScroll={onScroll} className="h-full overflow-y-auto bg-black">
+      <div style={stripWidthPct < 100 ? { maxWidth: `${stripWidthPct}%`, margin: '0 auto' } : undefined}>
       {Array.from({ length: loadedCount }).map((_, offset) => {
         const idx = baseIndex + offset
         const ch = chapters[idx]
@@ -205,6 +208,7 @@ export default function VerticalScrollRenderer({
           </section>
         )
       })}
+      </div>
     </div>
   )
 }

@@ -15,6 +15,9 @@ import { getSetting } from '../../lib/db/repo'
 import { db } from '../../lib/db/schema'
 import { getSeriesMeta, type SeriesMeta } from '../shelf/seriesMeta'
 import { getBookmarks, removeBookmark, type Bookmark } from '../bookmarks/bookmarks'
+import { CATALOG, BASE_CATALOG, setSourceOverride, sourceNameOf } from '../../catalog'
+import { migrateSeries } from '../shelf/idMigration'
+import { kkSearch as kkSearchRaw, type KakalotManga } from '../../lib/kakalot/client'
 import {
   useManga, useChapterFeed, mangaEnTitle, mangaCoverUrl,
   type MDChapter,
@@ -248,6 +251,31 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
     void saveSeriesMeta(readSeriesId, { [k]: next[k] })
   }
 
+  // Per-series source switching (WeebCentral ↔ Comizy)
+  const catEntry = isKakalot ? CATALOG.find(e => e.id === id) : undefined
+  const [srcSheet, setSrcSheet] = useState(false)
+  const [srcResults, setSrcResults] = useState<KakalotManga[] | null>(null)
+  const [srcBusy, setSrcBusy] = useState(false)
+  async function openSourceSheet() {
+    if (!catEntry) return
+    setSrcSheet(true)
+    setSrcResults(null)
+    const other = id.startsWith('buddy:') ? undefined : 'buddy' as const
+    const results = await kkSearchRaw(catEntry.title, other).catch(() => [])
+    setSrcResults(results.filter(r => r.id !== id))
+  }
+  async function applySource(r: KakalotManga) {
+    if (!catEntry || srcBusy) return
+    setSrcBusy(true)
+    try {
+      await migrateSeries(id, r.id)
+      const base = BASE_CATALOG.find(b => b.title === catEntry.title)
+      if (base && base.id === r.id) setSourceOverride(catEntry.title, null)
+      else setSourceOverride(catEntry.title, { id: r.id, cover: r.cover || undefined })
+      location.reload() // effective catalog is computed at startup
+    } catch { setSrcBusy(false) }
+  }
+
   // Jump-to-chapter input
   const [jump, setJump] = useState('')
   function jumpToChapter() {
@@ -369,7 +397,7 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
 
         {/* Per-series preferences (push + auto-download apply to the Reading shelf) */}
         {showKkChapters && (
-          <div style={{ display: 'flex', gap: 8, padding: '0 18px', marginBottom: 14 }}>
+          <div style={{ display: 'flex', gap: 8, padding: '0 18px', marginBottom: 14, flexWrap: 'wrap' }}>
             {([['notify', 'Notifications'], ['autoDl', 'Auto-download']] as const).map(([k, label]) => {
               const on = prefs[k] !== false
               return (
@@ -380,6 +408,49 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
                 }}>{on ? '✓ ' : ''}{label}</button>
               )
             })}
+            {catEntry && (
+              <button onClick={() => void openSourceSheet()} style={{
+                height: 32, padding: '0 12px', borderRadius: 9, border: '1px solid var(--y-line)',
+                background: 'var(--y-surf)', color: 'var(--y-mid)', fontSize: 11, fontWeight: 700, cursor: 'pointer',
+              }}>
+                Source: {sourceNameOf(id)} ↔
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Source-switch sheet */}
+        {srcSheet && (
+          <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'flex-end', background: 'rgba(0,0,0,0.6)' }} onClick={() => { if (!srcBusy) setSrcSheet(false) }}>
+            <div style={{ width: '100%', maxHeight: '70%', overflowY: 'auto', borderRadius: '20px 20px 0 0', background: 'var(--y-surf)', border: '1px solid var(--y-line)', padding: '20px 18px 30px' }} onClick={e => e.stopPropagation()}>
+              <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--y-hi)', marginBottom: 6 }}>Switch source</div>
+              <p style={{ fontSize: 11.5, fontWeight: 500, color: 'var(--y-dim)', marginBottom: 16, lineHeight: 1.5 }}>
+                Currently on <b>{sourceNameOf(id)}</b>. Your progress and read marks carry over by chapter number; downloads stay tied to the old source.
+              </p>
+              {srcResults === null && <div style={{ height: 60, borderRadius: 12, background: 'var(--y-surf2)', marginBottom: 10 }} />}
+              {srcResults !== null && srcResults.length === 0 && (
+                <p style={{ fontSize: 12, color: 'var(--y-dim)', marginBottom: 12 }}>No match found on the other source.</p>
+              )}
+              {(srcResults ?? []).map(r => (
+                <button key={r.id} onClick={() => void applySource(r)} disabled={srcBusy} style={{
+                  width: '100%', minHeight: 56, display: 'flex', alignItems: 'center', gap: 12, padding: '8px 10px',
+                  borderRadius: 12, border: '1px solid var(--y-line)', background: 'var(--y-surf2)',
+                  cursor: 'pointer', marginBottom: 8, textAlign: 'left',
+                }}>
+                  <div style={{ width: 34, height: 46, borderRadius: 6, overflow: 'hidden', flexShrink: 0, background: 'var(--y-line)' }}>
+                    {r.cover && <img src={r.cover} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--y-hi)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.title}</div>
+                    <div style={{ fontSize: 10.5, fontWeight: 600, color: 'var(--y-dim)', marginTop: 2 }}>{sourceNameOf(r.id)}</div>
+                  </div>
+                </button>
+              ))}
+              <button onClick={() => { if (!srcBusy) setSrcSheet(false) }}
+                style={{ width: '100%', height: 44, borderRadius: 12, border: 'none', background: 'none', color: 'var(--y-dim)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+                {srcBusy ? 'Switching…' : 'Cancel'}
+              </button>
+            </div>
           </div>
         )}
 

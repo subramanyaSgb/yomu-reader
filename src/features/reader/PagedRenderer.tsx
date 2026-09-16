@@ -23,6 +23,7 @@ interface Props {
   gapColor?: string
   quality?: ImageQuality
   initialPage?: number
+  spread?: boolean
   onPageChange?: (page: number) => void
 }
 
@@ -35,6 +36,7 @@ export default function PagedRenderer({
   gapColor = '#000',
   quality = 'source',
   initialPage = 0,
+  spread = false,
   onPageChange,
 }: Props) {
   const dir: Direction = rtl ? 'rtl' : 'ltr'
@@ -74,7 +76,8 @@ export default function PagedRenderer({
       onChapterChange(chapterIndex - 1)
       return
     }
-    const next = nextIndex(page, pages.length, action, dir)
+    let next = nextIndex(page, pages.length, action, dir)
+    if (spread && next !== page) next = nextIndex(next, pages.length, action, dir) // two pages per turn
     if (next === page) return
     // brief turn animation
     setTurning(action)
@@ -141,12 +144,20 @@ export default function PagedRenderer({
         className="absolute right-0 top-0 z-10 h-full w-1/3"
       />
 
-      <img
-        src={pages[page]}
-        alt=""
-        draggable={false}
-        className={`max-h-full max-w-full select-none ${turnClass}`}
-      />
+      {spread && pages[page + 1] ? (
+        <div className={`flex h-full items-center justify-center gap-1 ${turnClass}`}>
+          {(rtl ? [pages[page + 1], pages[page]] : [pages[page], pages[page + 1]]).map((src, i) => (
+            <img key={i} src={src} alt="" draggable={false} className="max-h-full min-w-0 select-none object-contain" style={{ maxWidth: '49.5%' }} />
+          ))}
+        </div>
+      ) : (
+        <img
+          src={pages[page]}
+          alt=""
+          draggable={false}
+          className={`max-h-full max-w-full select-none ${turnClass}`}
+        />
+      )}
 
       {/* On-screen arrows */}
       {hudVisible && (
@@ -154,7 +165,7 @@ export default function PagedRenderer({
           <ArrowBtn side="left" onClick={() => turn('left')} />
           <ArrowBtn side="right" onClick={() => turn('right')} />
           <div className="absolute bottom-3 left-1/2 z-20 -translate-x-1/2 rounded-full bg-black/60 px-3 py-1 text-xs text-white">
-            Ch. {chapter?.number ?? '?'} · {page + 1}/{pages.length}
+            Ch. {chapter?.number ?? '?'} · {spread && pages[page + 1] ? `${page + 1}–${page + 2}` : page + 1}/{pages.length}
           </div>
         </>
       )}

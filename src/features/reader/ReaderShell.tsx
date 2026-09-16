@@ -230,17 +230,33 @@ export default function ReaderShell({ seriesId, seriesSource, seriesType, startC
     }
   }, [])
 
-  // Opening a chapter marks it read (comix-style checkmarks), records the series
-  // meta the shelf cards display, and appends to the reading history.
+  // Chapter-change bookkeeping: series meta + history always; read-marking depends on
+  // the markOn preference — 'open' marks immediately, 'end' marks the PREVIOUS chapter
+  // when you move on (plus near-completion below).
+  const prevMarkRef = useRef<string | null>(null)
   useEffect(() => {
     if (!restored) return
     const ref = chapterRefsRef.current[chapterIndex]
     if (!ref) return
-    void markChapterRead(seriesId, ref.id)
+    if ((mem.markOn ?? 'open') === 'open') {
+      void markChapterRead(seriesId, ref.id)
+    } else if (prevMarkRef.current && prevMarkRef.current !== ref.id) {
+      void markChapterRead(seriesId, prevMarkRef.current)
+    }
+    prevMarkRef.current = ref.id
     void saveSeriesMeta(seriesId, { total: chapterRefsRef.current.length, lastNumber: ref.number })
     const title = CATALOG.find(e => e.id === seriesId)?.title ?? seriesId
     void appendHistory({ seriesId, title, chapterId: ref.id, number: ref.number })
-  }, [chapterIndex, restored, seriesId])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chapterIndex, restored, seriesId, mem.markOn])
+
+  // 'end' mode: reaching ~the bottom of a chapter marks it read.
+  useEffect(() => {
+    if (!restored || (mem.markOn ?? 'open') !== 'end' || progressPct < 97) return
+    const ref = chapterRefsRef.current[chapterIndex]
+    if (ref) void markChapterRead(seriesId, ref.id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [progressPct, restored, mem.markOn])
 
   // Latest exact position, for bookmarking the current spot.
   const lastPosRef = useRef<Bookmark['position']>({ kind: 'scroll', imageIndex: 0, offsetPct: 0 })
@@ -323,6 +339,7 @@ export default function ReaderShell({ seriesId, seriesSource, seriesType, startC
           chapters={chapterRefs}
           startIndex={chapterIndex}
           quality={quality}
+          stripWidthPct={mem.stripWidth ?? 100}
           initialAnchor={initialAnchor}
           onChapterChange={setChapterIndex}
           onProgressChange={setProgressPct}
@@ -344,6 +361,7 @@ export default function ReaderShell({ seriesId, seriesSource, seriesType, startC
           turnOverride={mem.turn}
           gapColor={mem.gapColor}
           quality={quality}
+          spread={mem.spread ?? false}
           initialPage={initialPage}
           onPageChange={(p) => {
             const ref = chapterRefsRef.current[chapterIndex]
@@ -393,6 +411,15 @@ export default function ReaderShell({ seriesId, seriesSource, seriesType, startC
         <div
           className="pointer-events-none absolute inset-0 z-10 bg-black"
           style={{ opacity: mem.brightness }}
+        />
+      )}
+      {mem.tint && mem.tint !== 'none' && (
+        <div
+          className="pointer-events-none absolute inset-0 z-10"
+          style={{
+            background: mem.tint === 'warm' ? 'rgba(255,147,41,0.30)' : 'rgba(112,66,20,0.35)',
+            mixBlendMode: 'multiply',
+          }}
         />
       )}
 

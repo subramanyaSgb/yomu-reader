@@ -31,8 +31,8 @@ export interface KakalotPage {
   src: string
 }
 
-export async function kkSearch(query: string): Promise<KakalotManga[]> {
-  const res = await fetch(scrapeUrl('search', { q: query }))
+export async function kkSearch(query: string, src?: 'buddy'): Promise<KakalotManga[]> {
+  const res = await fetch(scrapeUrl('search', src ? { q: query, src } : { q: query }))
   if (!res.ok) return []
   const data = await res.json() as { results: KakalotManga[] }
   return data.results ?? []

@@ -24,7 +24,7 @@ async function moveSettingKey(oldKey: string, newKey: string) {
   await db.settings.delete(oldKey)
 }
 
-async function migrateSeries(oldId: string, newId: string) {
+export async function migrateSeries(oldId: string, newId: string) {
   // shelf assignment
   const shelves = (await getSetting<Record<string, Shelf>>('shelves:v1')) ?? {}
   if (shelves[oldId] && !shelves[newId]) {

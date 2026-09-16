@@ -14,6 +14,7 @@ import { lazy, Suspense } from 'react'
 import ShelfScreen from './features/shelf/ShelfScreen'
 import UpcomingScreen from './features/shelf/UpcomingScreen'
 import HistoryScreen from './features/history/HistoryScreen'
+import StatsScreen from './features/history/StatsScreen'
 import SeriesDetail from './features/discovery/SeriesDetail'
 import type { Bookmark } from './features/bookmarks/bookmarks'
 // The reader (renderers, zoom math, resume, HUD) is the heaviest screen and isn't
@@ -31,6 +32,7 @@ type OverlayScreen =
   | { kind: 'reader'; id: string; source: SeriesSource; type: SeriesType; startChapterId?: string; startPosition?: Bookmark['position'] }
   | { kind: 'upcoming' }
   | { kind: 'history' }
+  | { kind: 'stats' }
 
 export default function App() {
   const [tab, setTab] = useState<Tab>('reading')
@@ -152,12 +154,16 @@ export default function App() {
           {overlay?.kind === 'history' && (
             <HistoryScreen onBack={goBack} onOpen={openSeries} />
           )}
+          {overlay?.kind === 'stats' && (
+            <StatsScreen onBack={goBack} />
+          )}
           {!overlay && (
             <ShelfScreen
               shelf={tab}
               onOpen={openSeries}
               onUpcoming={() => pushOverlay({ kind: 'upcoming' })}
               onHistory={() => pushOverlay({ kind: 'history' })}
+              onStats={() => pushOverlay({ kind: 'stats' })}
             />
           )}
         </main>
