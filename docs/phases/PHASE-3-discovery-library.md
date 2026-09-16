@@ -33,4 +33,18 @@ Search → add to library → organize into shelves/collections; open a local CB
 - Natural sort is the classic pitfall (page2 vs page10) — dedicated tested comparator.
 
 ## RESULTS
-_(appended per hard rule)_
+
+### Phase 3 — COMPLETE ✅ (2026-09-16)
+**Built:**
+- Discovery queries: `usePopular`, `useLatestUpdates`, `useAdvancedSearch(filters)`.
+- `HomeScreen` (Popular + Latest rows), `SearchScreen` (debounced instant search + status chips + recent searches, settings-backed), `SeriesCard`.
+- DB v3: `library` table + `libraryRepo` (add/remove/shelf/notify/collections/counts).
+- `libraryLogic` (pure): shelves, collections add/remove, sort comparators, unread. `LibraryScreen` (shelf tabs, sort, unread badges).
+- `duplicateDetection` (pure): title normalize + token Jaccard + union-find clustering.
+- `naturalSort` (pure): page2 < page10.
+- `localFiles`: CBZ (jszip), image folder (natural sort), PDF (pdf.js **lazy-imported**). `LocalFilesScreen` + Zoomable rendering.
+- App shell with bottom nav (Home/Search/Library/Local) + reader.
+**Verification:** Phase 3 logic self-check (natural sort, library shelves/collections/sort/unread, duplicate clustering) green; **all 11 project self-checks green**; build clean (pdf.js stays out of main bundle via dynamic import).
+**Deviations:** cover-art rendering is a placeholder (needs cover_art relationship → proxy; Phase 5 polish). Series-type inference from tags deferred to Phase 5 (reader still defaults manga). "Add to library" wiring from series detail is minimal (library screen reads the table; a detail screen with add/notify lands in Phase 5).
+**Gaps carried:** series detail screen, cover art, genre-based recommendations (needs stats — Phase 5).
+**Caveat:** local-file reading verified by build + logic self-checks; real CBZ/PDF open is a device/browser check (Phase 6).

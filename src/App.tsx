@@ -1,60 +1,62 @@
 import { useState } from 'react'
-import { useSearch } from './lib/mangadex/queries'
+import HomeScreen from './features/discovery/HomeScreen'
+import SearchScreen from './features/discovery/SearchScreen'
+import LibraryScreen from './features/library/LibraryScreen'
+import LocalFilesScreen from './features/localfiles/LocalFilesScreen'
 import ReaderShell from './features/reader/ReaderShell'
 import type { SeriesType } from './lib/db/schema'
 
-// Phase 1 host: a minimal picker -> real reader. Full discovery/library is Phase 3.
-function mdTypeToSeriesType(): SeriesType {
-  // MangaDex tags carry demographic/format; refined in Phase 3. Default manga for now.
-  return 'manga'
-}
+type Tab = 'home' | 'search' | 'library' | 'local'
+
+const TABS: { id: Tab; label: string; icon: string }[] = [
+  { id: 'home', label: 'Home', icon: '🏠' },
+  { id: 'search', label: 'Search', icon: '🔍' },
+  { id: 'library', label: 'Library', icon: '📚' },
+  { id: 'local', label: 'Local', icon: '📁' },
+]
 
 export default function App() {
-  const [term, setTerm] = useState('')
-  const [query, setQuery] = useState('')
-  const [open, setOpen] = useState<{ id: string; type: SeriesType } | null>(null)
-  const search = useSearch(query)
+  const [tab, setTab] = useState<Tab>('home')
+  const [reading, setReading] = useState<{ id: string; type: SeriesType } | null>(null)
 
-  if (open) {
+  // Series type is refined from MangaDex tags in Phase 5; default manga for reader mode now.
+  const openSeries = (id: string) => setReading({ id, type: 'manga' })
+
+  if (reading) {
     return (
       <div className="h-screen">
         <ReaderShell
-          seriesId={open.id}
-          seriesType={open.type}
-          onClose={() => setOpen(null)}
+          seriesId={reading.id}
+          seriesType={reading.type}
+          onClose={() => setReading(null)}
         />
       </div>
     )
   }
 
   return (
-    <div className="mx-auto max-w-md p-4">
-      <h1 className="mb-3 text-2xl font-bold text-white">Yomu</h1>
-      <form
-        onSubmit={(e) => {
-          e.preventDefault()
-          setQuery(term)
-        }}
-        className="mb-4 flex gap-2"
-      >
-        <input
-          value={term}
-          onChange={(e) => setTerm(e.target.value)}
-          placeholder="Search a series…"
-          className="flex-1 rounded-lg bg-neutral-800 px-3 py-2 text-white outline-none"
-        />
-        <button className="rounded-lg bg-violet-600 px-4 py-2 font-medium text-white">Go</button>
-      </form>
-      {search.isLoading && <p className="text-neutral-400">Searching…</p>}
-      {search.data?.data.map((m) => (
-        <button
-          key={m.id}
-          onClick={() => setOpen({ id: m.id, type: mdTypeToSeriesType() })}
-          className="mb-2 block w-full rounded-lg bg-neutral-800 px-3 py-2 text-left text-white hover:bg-neutral-700"
-        >
-          {m.attributes.title.en ?? Object.values(m.attributes.title)[0]}
-        </button>
-      ))}
+    <div className="flex h-screen flex-col">
+      <main className="flex-1 overflow-y-auto">
+        {tab === 'home' && <HomeScreen onOpen={openSeries} />}
+        {tab === 'search' && <SearchScreen onOpen={openSeries} />}
+        {tab === 'library' && <LibraryScreen onOpen={openSeries} />}
+        {tab === 'local' && <LocalFilesScreen />}
+      </main>
+
+      <nav className="flex border-t border-neutral-800 bg-neutral-950">
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setTab(t.id)}
+            className={`flex flex-1 flex-col items-center gap-0.5 py-2 text-xs ${
+              tab === t.id ? 'text-violet-400' : 'text-neutral-500'
+            }`}
+          >
+            <span className="text-lg">{t.icon}</span>
+            {t.label}
+          </button>
+        ))}
+      </nav>
     </div>
   )
 }

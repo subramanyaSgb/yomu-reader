@@ -92,4 +92,53 @@ export function useAtHomeServer(chapterId: string | undefined) {
   })
 }
 
+/** Most-followed series (home "Popular"). */
+export function usePopular() {
+  return useQuery({
+    queryKey: ['md', 'popular'],
+    queryFn: () =>
+      mdGet<MDList<MDManga>>('/manga', {
+        limit: 20,
+        'order[followedCount]': 'desc',
+        'contentRating[]': ['safe', 'suggestive'],
+      }),
+  })
+}
+
+/** Recently updated series (home "Latest Updates"). */
+export function useLatestUpdates() {
+  return useQuery({
+    queryKey: ['md', 'latest'],
+    staleTime: 60 * 1000,
+    queryFn: () =>
+      mdGet<MDList<MDManga>>('/manga', {
+        limit: 20,
+        'order[latestUploadedChapter]': 'desc',
+        'contentRating[]': ['safe', 'suggestive'],
+      }),
+  })
+}
+
+export interface SearchFilters {
+  title?: string
+  status?: string // ongoing|completed|hiatus|cancelled
+  year?: number
+  contentRating?: string[]
+}
+
+export function useAdvancedSearch(filters: SearchFilters) {
+  return useQuery({
+    queryKey: ['md', 'adv', filters],
+    enabled: !!(filters.title || filters.status || filters.year),
+    queryFn: () =>
+      mdGet<MDList<MDManga>>('/manga', {
+        title: filters.title,
+        status: filters.status,
+        year: filters.year,
+        'contentRating[]': filters.contentRating ?? ['safe', 'suggestive'],
+        limit: 30,
+      }),
+  })
+}
+
 export type { MDList, MDEntity }
