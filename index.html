@@ -4,7 +4,14 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>yomu-scaffold</title>
+    <meta name="theme-color" content="#0D0D0D" />
+    <title>Yomu</title>
+    <!-- Fonts as a parallel <link> (was a render-blocking @import chain inside the CSS) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" />
+    <!-- First API/image request skips DNS+TLS setup -->
+    <link rel="preconnect" href="https://yomu-image-proxy.subramanya-bellary.workers.dev" />
   </head>
   <body>
     <div id="root"></div>
