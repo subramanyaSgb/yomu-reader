@@ -22,9 +22,11 @@ Phased plan from empty repo to shipped v1, then v2. Each phase has a goal, scope
 
 ---
 
-## Phase 1 — Core reader (online, happy path)
+## Phase 1 — Core reader (online, happy path) ✅ COMPLETE (2026-09-16)
 
 **Goal:** read online, all three modes, well.
+
+> Done. See `docs/phases/PHASE-1-core-reader.md`. Reader engine (scroll + paged/curl), version resolver + switch, zoom, per-series memory; 7 self-checks + live E2E green.
 Scope: FR-6, FR-7, FR-8, FR-9, FR-11, FR-2, FR-3.
 
 - Dexie schema + repositories.

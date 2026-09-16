@@ -64,4 +64,28 @@ Read a manhwa end-to-end (seamless scroll across a chapter boundary) and a manga
 ---
 
 ## RESULTS
-_(appended as batches complete — per the documentation hard rule)_
+
+### Batch A — Task 1 (DB) + Task 2 (version resolver) ✅ (2026-09-16)
+**Built (Task 1):** `src/lib/db/schema.ts` (Dexie v1: `series`, `chapters`, `progress`, `settings` — only Phase-1 tables, per YAGNI) + `src/lib/db/repo.ts` (put/get series, chapters, progress, typed settings, `readerMemoryKey`). Progress `position` is a discriminated union (paged pageIndex | scroll {imageIndex, offsetPct}).
+**Built (Task 2):** `src/features/reader/versionResolver.ts` — pure comix-model resolver: group-by-number → prefer-one-group → gap-fill by likes→pages→recency → continuous numeric-ordered list + per-number version pool for the switcher. Plus `inferPreferredGroup` (widest-coverage default).
+**Verification:**
+- DB self-check (fake-indexeddb): series/progress/reader-memory round-trip ✅ (scroll anchor preserved).
+- Resolver self-check: prefer-group, gap-fill, likes-ranking, numeric ordering (10 after 3), switcher pool best-first, tiebreak likes→pages→recency — all ✅.
+- App build green.
+**Deviations:** none. **Gaps carried:** progress is written to DB but not yet persisted-on-close/synced (Phase 2/4, as planned).
+
+### Batch B + Task 5 — Reader engine ✅ (2026-09-16)
+**Built:** `zoomMath` + `ZoomableImage` (tap-anchor zoom, pinch, pan, double-tap 1→2→3 cycle); `scrollAnchor` + `VerticalScrollRenderer` (edge-to-edge, seamless next-chapter mount near end, anchor tracking); `pagedNav` + `PagedRenderer` (RTL/LTR, edge-tap/swipe/arrows, auto-hiding HUD+counter, curl-or-slide by WebGL capability); `curl/capability`; `useChapterPages` (proxied pages); `ReaderShell` mode routing. App picker → real reader; Phase 0 spike deleted.
+**Verification:** zoom/anchor/nav self-checks green; build clean.
+**Deviations:** merged Task 5 into this batch (shell imports PagedRenderer, so building it here kept the batch compiling — net simpler). **Curl decision:** shipped a CSS-3D fold as the "curl" path (real page-turn, runs anywhere) with slide fallback + capability gate; true WebGL finger-follow shader flagged as v-next (TDD §6 calls it the hardest single thing) — reading is never blocked on it.
+
+### Batch C — Task 6: controls + memory + version switch ✅ (2026-09-16)
+**Built:** `useReaderMemory` (per-series mode/rtl/fit/gap/brightness, settings-backed); `ReaderControls` (direction, fit, gap color, brightness dim); `VersionSwitchSheet` (per-chapter version pool, pick+remember); ReaderShell integrates all + brightness overlay + per-chapter override.
+**Verification:** reader-memory self-check (round-trip + per-series isolation) green; **live E2E**: resolver → 8 numeric-ordered chapters → selected version → at-home → **page rendered through live proxy (200, image/png, 19323 bytes)**. (Transient 400s during testing were the 15-min at-home URL expiry — validates the cache-bytes-not-URLs design.)
+
+---
+
+## PHASE 1 — COMPLETE ✅ (2026-09-16)
+All exit criteria met: manhwa seamless-scroll + manga paged (RTL, curl/slide) reading online from MangaDex, English-only, chapter-version resolution + in-reader switch, per-series memory. 7 self-checks + live E2E green.
+**Gaps carried (by design):** position persistence-on-close & sync (Phase 2/4); true WebGL curl + volume-key turn + device-perf (Phase 6); likes signal for ranking is 0 until enriched (Phase 3+); single/double landscape page (Phase 6).
+**Caveat:** verified headlessly (self-checks + live HTTP E2E); on-device visual/gesture pass is Phase 6.
