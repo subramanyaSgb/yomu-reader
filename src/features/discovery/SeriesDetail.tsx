@@ -43,6 +43,9 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
   const [order, setOrder] = useState<'desc' | 'asc'>('desc')
   const [synopsisExpanded, setSynopsisExpanded] = useState(false)
   const [following, setFollowing] = useState(false)
+  // Long series can have 3000+ chapters — rendering them all as DOM nodes janks the
+  // page. Render in slices of 100 with a "Show more" button.
+  const [chapterLimit, setChapterLimit] = useState(100)
 
   const m = manga.data?.data
   const c = comic.data
@@ -230,7 +233,7 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
         )}
 
         {/* Comick chapters (metadata) — reading resolves via Kakalot */}
-        {isComick && ckChapters.map((ch) => {
+        {isComick && ckChapters.slice(0, chapterLimit).map((ch) => {
           const displayNum = ch.chap ?? '?'
           const grp = ch.group_name?.[0] ?? 'Comick'
           return (
@@ -248,7 +251,7 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
         })}
 
         {/* MangaDex chapters */}
-        {!showKkChapters && !isComick && mdChapters.map((ch, i) => {
+        {!showKkChapters && !isComick && mdChapters.slice(0, chapterLimit).map((ch, i) => {
           const num = ch.attributes.chapter ?? `${i + 1}`
           const chTitle = ch.attributes.title ?? ''
           const group = groupName(ch)
@@ -271,7 +274,7 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
         })}
 
         {/* WeebCentral chapters (kakalot-source series + licensed fallback) */}
-        {showKkChapters && !isComick && kkChapters.map((ch) => {
+        {showKkChapters && !isComick && kkChapters.slice(0, chapterLimit).map((ch) => {
           const displayNum = ch.number ?? '?'
           return (
             <button key={ch.id} onClick={() => onRead(kkMangaId ?? undefined, 'kakalot', ch.id)} style={{
@@ -286,6 +289,17 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
             </button>
           )
         })}
+
+        {/* Show-more for long chapter lists */}
+        {displayChapterCount > chapterLimit && (
+          <button onClick={() => setChapterLimit(l => l + 400)} style={{
+            width: 'calc(100% - 36px)', margin: '10px 18px', height: 44, borderRadius: 11,
+            background: 'var(--y-surf)', border: '1px solid var(--y-line)', cursor: 'pointer',
+            fontSize: 13, fontWeight: 700, color: 'var(--y-plt)',
+          }}>
+            Show more ({displayChapterCount - chapterLimit} remaining)
+          </button>
+        )}
 
         {displayChapterCount > 0 && (
           <p style={{ fontSize: 10.5, fontWeight: 500, color: 'var(--y-dim)', padding: '8px 18px 100px', lineHeight: 1.55 }}>

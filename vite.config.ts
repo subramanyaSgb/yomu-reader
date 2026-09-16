@@ -22,6 +22,22 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
+      workbox: {
+        // Don't precache the big lazy chunks (pdf.worker ~2.2MB, firebase ~540KB) —
+        // they'd download on every install/SW update even if never used. Runtime
+        // caching below picks them up on first real use (still offline afterwards).
+        globIgnores: ['**/pdf.worker*', '**/firebase-*'],
+        runtimeCaching: [
+          {
+            urlPattern: /\/assets\/.*\.(js|mjs)$/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'lazy-assets',
+              expiration: { maxEntries: 30, maxAgeSeconds: 60 * 60 * 24 * 30 },
+            },
+          },
+        ],
+      },
       manifest: {
         name: 'Yomu',
         short_name: 'Yomu',

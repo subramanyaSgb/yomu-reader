@@ -66,7 +66,19 @@ export default function VerticalScrollRenderer({
     return () => window.clearInterval(id)
   }, [autoScroll, autoScrollSpeed])
 
+  // Scroll events fire at 60Hz+ and the handler walks the DOM (querySelectorAll +
+  // offsetTop reads) — throttle to one run per animation frame to avoid layout thrash.
+  const scrollScheduled = useRef(false)
   function onScroll() {
+    if (scrollScheduled.current) return
+    scrollScheduled.current = true
+    requestAnimationFrame(() => {
+      scrollScheduled.current = false
+      handleScroll()
+    })
+  }
+
+  function handleScroll() {
     const el = scroller.current
     if (!el) return
     const { scrollTop, scrollHeight, clientHeight } = el

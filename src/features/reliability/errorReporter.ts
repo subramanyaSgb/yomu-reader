@@ -1,6 +1,6 @@
 // Error logging (FR-37): Crashlytics-style. Reports to Firebase if enabled, else keeps a
 // local ring buffer the owner can inspect. Strips content specifics; keeps diagnostics.
-import { isSyncEnabled } from '../sync/firebase'
+import { isSyncEnabled } from '../sync/syncEnabled'
 
 export interface LoggedError {
   at: number

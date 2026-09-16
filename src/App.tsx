@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { loadStoredTheme } from './styles/theme'
 import { ToastProvider } from './components/Toast'
 import BottomNav from './components/BottomNav'
@@ -10,7 +10,8 @@ import SearchScreen from './features/discovery/SearchScreen'
 import SeriesDetail from './features/discovery/SeriesDetail'
 import LibraryScreen from './features/library/LibraryScreen'
 import StorageScreen from './features/storage/StorageScreen'
-import ProfileScreen from './features/sync/ProfileScreen'
+// Lazy: ProfileScreen is the only route that needs the ~540KB firebase chunk.
+const ProfileScreen = lazy(() => import('./features/sync/ProfileScreen'))
 import LocalFilesScreen from './features/localfiles/LocalFilesScreen'
 import UnreadScreen from './features/discovery/UnreadScreen'
 import ReaderShell from './features/reader/ReaderShell'
@@ -106,7 +107,11 @@ export default function App() {
           {!overlay && tab === 'search'  && <SearchScreen onOpen={openSeries} />}
           {!overlay && tab === 'library' && <LibraryScreen onOpen={openSeries} />}
           {!overlay && tab === 'storage' && <StorageScreen />}
-          {!overlay && tab === 'profile' && <ProfileScreen onLocalFiles={() => setOverlay({ kind: 'local' })} />}
+          {!overlay && tab === 'profile' && (
+            <Suspense fallback={<div style={{ padding: 18 }}><div style={{ height: 120, borderRadius: 16, background: 'var(--y-surf)' }} /></div>}>
+              <ProfileScreen onLocalFiles={() => setOverlay({ kind: 'local' })} />
+            </Suspense>
+          )}
         </main>
 
         {/* BottomNav: hidden inside readers and full-overlay screens */}

@@ -1,51 +1,34 @@
-import { Bell, Search as SearchIcon, ChevronRight } from 'lucide-react'
-import { usePopular, useLatestUpdates, mangaEnTitle, mangaCoverUrl, type MDManga } from '../../lib/mangadex/queries'
+// Home = the owner's curated catalog (src/catalog.ts). No external discovery rails —
+// this is a personal library app: only the listed series exist in the UI.
+
+import { Bell, Search as SearchIcon } from 'lucide-react'
+import { CATALOG, type CatalogEntry } from '../../catalog'
+import { kkCoverUrl } from '../../lib/kakalot/client'
 import { coverHue } from '../../components/CoverGradient'
 import type { SeriesSource } from '../../App'
 
-function CoverImg({ manga, width, height, radius = 14 }: { manga: MDManga; width: number; height: number; radius?: number }) {
-  const cover = mangaCoverUrl(manga) // proxied via Worker (MD covers are anti-hotlink)
-  const hue = coverHue(manga.id)
+function CatalogCard({ entry, onOpen }: { entry: CatalogEntry; onOpen: (id: string, src: SeriesSource) => void }) {
+  const hue = coverHue(entry.id || entry.title)
+  const unavailable = entry.unavailable === true
   return (
-    <div style={{ width, height, borderRadius: radius, overflow: 'hidden', flexShrink: 0, position: 'relative',
-      background: `linear-gradient(150deg, ${hue} 0%, color-mix(in oklab, ${hue} 36%, var(--y-bg)) 58%, var(--y-bg) 100%)` }}>
-      {cover && <img src={cover} alt={mangaEnTitle(manga)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />}
-    </div>
-  )
-}
-
-function RailCard({ manga, onOpen }: { manga: MDManga; onOpen: (id: string, src: SeriesSource) => void }) {
-  const title = mangaEnTitle(manga)
-  return (
-    <button onClick={() => onOpen(manga.id, 'mangadex')} style={{ width: 110, flexShrink: 0, textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-      <CoverImg manga={manga} width={110} height={152} radius={14} />
-      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--y-text)', marginTop: 6, lineHeight: 1.35,
-        overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{title}</div>
-      <div style={{ fontSize: 10, fontWeight: 500, color: 'var(--y-dim)', marginTop: 2 }}>{manga.attributes.status}</div>
+    <button
+      onClick={() => { if (!unavailable) onOpen(entry.id, 'kakalot') }}
+      style={{ textAlign: 'left', background: 'none', border: 'none', cursor: unavailable ? 'default' : 'pointer', padding: 0, opacity: unavailable ? 0.45 : 1 }}>
+      <div style={{ borderRadius: 16, overflow: 'hidden', aspectRatio: '110/152', position: 'relative',
+        background: `linear-gradient(150deg, ${hue} 0%, color-mix(in oklab, ${hue} 36%, var(--y-bg)) 58%, var(--y-bg) 100%)` }}>
+        {!unavailable && (
+          <img src={kkCoverUrl(entry.id)} alt={entry.title} loading="lazy" decoding="async"
+            style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        )}
+        {unavailable && (
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 10 }}>
+            <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--y-dim)', textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: 'center' }}>Not on source yet</span>
+          </div>
+        )}
+      </div>
+      <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--y-text)', marginTop: 6, lineHeight: 1.3,
+        overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{entry.title}</div>
     </button>
-  )
-}
-
-function Rail({ title, sub, items, loading, onOpen }: {
-  title: string; sub: string; items: MDManga[]; loading: boolean;
-  onOpen: (id: string, src: SeriesSource) => void
-}) {
-  return (
-    <section style={{ marginBottom: 28 }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', padding: '0 18px', marginBottom: 4 }}>
-        <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--y-hi)' }}>{title}</span>
-        <button style={{ fontSize: 11, fontWeight: 700, color: 'var(--y-dim)', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 2 }}>
-          See all <ChevronRight size={13} />
-        </button>
-      </div>
-      <div style={{ fontSize: 10.5, fontWeight: 500, color: 'var(--y-dim)', padding: '0 18px', marginBottom: 10 }}>{sub}</div>
-      <div className="hide-scrollbar" style={{ display: 'flex', gap: 12, overflowX: 'auto', padding: '0 18px 4px' }}>
-        {loading && [0,1,2,3,4].map(i => (
-          <div key={i} style={{ width: 110, height: 152, borderRadius: 14, background: 'var(--y-surf)', flexShrink: 0, animation: 'pulse 1.5s ease infinite' }} />
-        ))}
-        {items.map(m => <RailCard key={m.id} manga={m} onOpen={onOpen} />)}
-      </div>
-    </section>
   )
 }
 
@@ -56,12 +39,9 @@ export default function HomeScreen({
   onOpen: (id: string, source: SeriesSource) => void
   onUnread: () => void
 }) {
-  const popular = usePopular()
-  const latest = useLatestUpdates()
-  const hero = popular.data?.data?.[0]
-  const heroTitle = hero ? mangaEnTitle(hero) : ''
-  const heroHue = hero ? coverHue(hero.id) : '#17B57E'
-  const heroCover = hero ? mangaCoverUrl(hero) : null
+  const hero = CATALOG[0]
+  const heroHue = coverHue(hero.id)
+  const available = CATALOG.filter(e => !e.unavailable).length
 
   return (
     <div style={{ background: 'var(--y-bg)', minHeight: '100%' }}>
@@ -84,48 +64,45 @@ export default function HomeScreen({
         </div>
       </header>
 
-      {/* Hero 268px */}
-      {hero && (
-        <div style={{ height: 268, position: 'relative', overflow: 'hidden', marginBottom: 28 }}>
-          {/* backdrop cover */}
-          <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(150deg, ${heroHue} 0%, color-mix(in oklab, ${heroHue} 36%, var(--y-bg)) 58%, var(--y-bg) 100%)` }} />
-          {heroCover && <img src={heroCover} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: 0.55 }} />}
-          {/* scrim */}
-          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, var(--y-bg) 3%, var(--y-ov) 40%, transparent 76%)' }} />
-          {/* content */}
-          <div style={{ position: 'absolute', bottom: 0, left: 18, right: 18, paddingBottom: 18 }}>
-            <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-              <span style={{ background: 'var(--y-aa)', color: 'var(--y-a)', fontSize: 9, fontWeight: 800, letterSpacing: '0.08em', borderRadius: 6, padding: '3px 7px', textTransform: 'uppercase' }}>Popular Now</span>
-              <span style={{ background: 'var(--y-ov2)', color: 'var(--y-mid)', fontSize: 9, fontWeight: 800, letterSpacing: '0.08em', borderRadius: 6, padding: '3px 7px', textTransform: 'uppercase' }}>Manga · EN</span>
-            </div>
-            <h2 style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.05, color: 'var(--y-hi)', marginBottom: 6, textShadow: '0 2px 8px rgba(0,0,0,0.4)' }}>{heroTitle}</h2>
-            <p style={{ fontSize: 12, fontWeight: 500, color: 'var(--y-mid)', marginBottom: 14 }}>Action · Fantasy</p>
-            <div style={{ display: 'flex', gap: 10 }}>
-              <button onClick={() => onOpen(hero.id, 'mangadex')} style={{
-                height: 46, flex: 1.2, borderRadius: 13, background: 'var(--y-p)', color: 'var(--y-onp)',
-                fontSize: 14, fontWeight: 700, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-              }}>
-                <span style={{ fontSize: 13 }}>▶</span> Read now
-              </button>
-              <button onClick={() => onOpen(hero.id, 'mangadex')} style={{
-                height: 46, flex: 1, borderRadius: 13, background: 'transparent',
-                border: '1.5px solid var(--y-line)', color: 'var(--y-hi)',
-                fontSize: 14, fontWeight: 700, cursor: 'pointer',
-              }}>Details</button>
-            </div>
+      {/* Hero — first series of the curated list */}
+      <div style={{ height: 268, position: 'relative', overflow: 'hidden', marginBottom: 24 }}>
+        <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(150deg, ${heroHue} 0%, color-mix(in oklab, ${heroHue} 36%, var(--y-bg)) 58%, var(--y-bg) 100%)` }} />
+        <img src={kkCoverUrl(hero.id)} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: 0.55 }} />
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, var(--y-bg) 3%, var(--y-ov) 40%, transparent 76%)' }} />
+        <div style={{ position: 'absolute', bottom: 0, left: 18, right: 18, paddingBottom: 18 }}>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+            <span style={{ background: 'var(--y-aa)', color: 'var(--y-a)', fontSize: 9, fontWeight: 800, letterSpacing: '0.08em', borderRadius: 6, padding: '3px 7px', textTransform: 'uppercase' }}>My Library</span>
+            <span style={{ background: 'var(--y-ov2)', color: 'var(--y-mid)', fontSize: 9, fontWeight: 800, letterSpacing: '0.08em', borderRadius: 6, padding: '3px 7px', textTransform: 'uppercase' }}>Manhwa · EN</span>
+          </div>
+          <h2 style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.05, color: 'var(--y-hi)', marginBottom: 6, textShadow: '0 2px 8px rgba(0,0,0,0.4)' }}>{hero.title}</h2>
+          <p style={{ fontSize: 12, fontWeight: 500, color: 'var(--y-mid)', marginBottom: 14 }}>{available} series in your library</p>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button onClick={() => onOpen(hero.id, 'kakalot')} style={{
+              height: 46, flex: 1.2, borderRadius: 13, background: 'var(--y-p)', color: 'var(--y-onp)',
+              fontSize: 14, fontWeight: 700, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+            }}>
+              <span style={{ fontSize: 13 }}>▶</span> Read now
+            </button>
+            <button onClick={() => onOpen(hero.id, 'kakalot')} style={{
+              height: 46, flex: 1, borderRadius: 13, background: 'transparent',
+              border: '1.5px solid var(--y-line)', color: 'var(--y-hi)',
+              fontSize: 14, fontWeight: 700, cursor: 'pointer',
+            }}>Details</button>
           </div>
         </div>
-      )}
+      </div>
 
-      {/* Rails */}
-      <Rail title="Popular / Trending" sub="MangaDex follows + rating" items={popular.data?.data ?? []} loading={popular.isLoading} onOpen={onOpen} />
-      <Rail title="Latest Updates" sub="New English chapters, newest first" items={latest.data?.data ?? []} loading={latest.isLoading} onOpen={onOpen} />
-      <Rail title="Continue Reading" sub="Exact page resume · synced" items={[]} loading={false} onOpen={onOpen} />
-      <Rail title="Because you read Action" sub="From your most-read genres" items={popular.data?.data?.slice(5, 10) ?? []} loading={popular.isLoading} onOpen={onOpen} />
+      {/* Full catalog grid */}
+      <div style={{ padding: '0 18px 8px', display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+        <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--y-hi)' }}>My Library</span>
+        <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--y-dim)' }}>{CATALOG.length} titles</span>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '14px 12px', padding: '6px 18px 24px' }}>
+        {CATALOG.map(e => <CatalogCard key={e.title} entry={e} onOpen={onOpen} />)}
+      </div>
 
-      {/* Footer */}
-      <p style={{ fontSize: 10.5, fontWeight: 500, color: 'var(--y-dim)', textAlign: 'center', padding: '8px 18px 24px', lineHeight: 1.55 }}>
-        Metadata and chapters from MangaDex · English only. Personal-use client.
+      <p style={{ fontSize: 10.5, fontWeight: 500, color: 'var(--y-dim)', textAlign: 'center', padding: '0 18px 24px', lineHeight: 1.55 }}>
+        Curated personal library · long-strip reading · Personal-use client.
       </p>
     </div>
   )

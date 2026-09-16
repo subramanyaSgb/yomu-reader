@@ -40,9 +40,10 @@ function corsHeaders(origin: string | null): HeadersInit {
   }
 }
 
-function json(data: unknown, origin: string | null, status = 200): Response {
+function json(data: unknown, origin: string | null, status = 200, browserTtl = 0): Response {
   const h = new Headers(corsHeaders(origin))
   h.set('Content-Type', 'application/json')
+  if (status === 200 && browserTtl > 0) h.set('Cache-Control', `public, max-age=${browserTtl}`)
   return new Response(JSON.stringify(data), { status, headers: h })
 }
 
@@ -67,13 +68,15 @@ interface KakalotPage {
   src: string       // raw image CDN URL (frontend wraps it in the img action)
 }
 
-async function wcFetch(url: string): Promise<string | null> {
+async function wcFetch(url: string, cacheTtl = 600): Promise<string | null> {
   const res = await fetch(url, {
     headers: {
       'User-Agent': BROWSER_UA,
       Accept: 'text/html,application/xhtml+xml,*/*;q=0.8',
       Referer: WC + '/',
     },
+    // Edge-cache upstream HTML so repeat scrapes don't re-hit WC (rate-limit friendly).
+    cf: { cacheEverything: true, cacheTtl },
   })
   if (!res.ok) return null
   return res.text()
@@ -301,22 +304,23 @@ export default {
           const q = url.searchParams.get('q') ?? ''
           if (!q) return json({ results: [] }, origin)
           const results = await scrapeSearch(q, url.origin)
-          return json({ results }, origin)
+          // Only cache non-empty results (an empty set may be a transient upstream hiccup)
+          return json({ results }, origin, 200, results.length ? 600 : 0)
         }
 
         if (action === 'chapters') {
           const id = url.searchParams.get('id') ?? ''
           if (!id) return json({ error: 'missing id' }, origin, 400)
           const data = await scrapeChapters(id, url.origin)
-          return json(data, origin)
+          return json(data, origin, 200, data.chapters.length ? 600 : 0)
         }
 
         if (action === 'pages') {
           const id = url.searchParams.get('id') ?? ''
           if (!id) return json({ error: 'missing id' }, origin, 400)
-          // id IS the full chapter URL
+          // id IS the full chapter URL — released pages never change, cache long
           const pages = await scrapePages(id)
-          return json({ pages }, origin)
+          return json({ pages }, origin, 200, pages.length ? 3600 : 0)
         }
 
         if (action === 'img') {

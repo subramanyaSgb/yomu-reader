@@ -53,6 +53,17 @@ export async function kkPages(chapterId: string): Promise<KakalotPage[]> {
   return data.pages ?? []
 }
 
+/** Proxied cover URL for a WeebCentral series id ("{ULID}/{Slug}"). */
+export function kkCoverUrl(seriesId: string): string {
+  const ulid = seriesId.split('/')[0]
+  const u = new URL('/scrape', PROXY_BASE)
+  u.searchParams.set('site', 'kakalot')
+  u.searchParams.set('action', 'img')
+  u.searchParams.set('u', `https://temp.compsci88.com/cover/normal/${ulid}.webp`)
+  u.searchParams.set('ref', 'https://weebcentral.com/')
+  return u.toString()
+}
+
 /** Build a proxied image URL for a Kakalot CDN image (needs server-side Referer). */
 export function buildKakalotImageUrl(src: string, chapterUrl: string): string {
   const u = new URL('/scrape', PROXY_BASE)

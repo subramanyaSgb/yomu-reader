@@ -5,6 +5,9 @@
 import { initializeApp, type FirebaseApp } from 'firebase/app'
 import { getAuth, type Auth } from 'firebase/auth'
 import { getFirestore, type Firestore } from 'firebase/firestore'
+import { isSyncEnabled } from './syncEnabled'
+
+export { isSyncEnabled }
 
 interface FbEnv {
   apiKey: string
@@ -32,7 +35,6 @@ let auth: Auth | null = null
 let dbf: Firestore | null = null
 
 const env = readEnv()
-export const isSyncEnabled = env !== null
 
 if (env) {
   app = initializeApp(env)
