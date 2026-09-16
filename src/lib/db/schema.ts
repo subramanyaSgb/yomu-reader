@@ -91,6 +91,14 @@ export interface LibraryRow {
   readChapters: number
 }
 
+/** v2 bubble-detection cache (Phase 7). Key = `${chapterId}:${pageIndex}`. */
+export interface BubbleCache {
+  key: string
+  chapterId: string
+  pageIndex: number
+  regions: Array<{ x: number; y: number; w: number; h: number; order: number }>
+}
+
 class YomuDB extends Dexie {
   series!: EntityTable<Series, 'id'>
   chapters!: EntityTable<ChapterRow, 'id'>
@@ -99,6 +107,7 @@ class YomuDB extends Dexie {
   imageBytes!: EntityTable<ImageBytes, 'key'>
   downloads!: EntityTable<Download, 'chapterId'>
   library!: EntityTable<LibraryRow, 'seriesId'>
+  bubbles!: EntityTable<BubbleCache, 'key'>
 
   constructor() {
     super('yomu')
@@ -126,6 +135,17 @@ class YomuDB extends Dexie {
       imageBytes: 'key, chapterId, tier, lastAccess',
       downloads: 'chapterId, seriesId, status',
       library: 'seriesId, shelf, notify, lastReadAt, lastUpdatedAt',
+    })
+    // v5 (Phase 7): bubble-detection cache (v2 feature, behind flag).
+    this.version(5).stores({
+      series: 'id, source, type, updatedAt',
+      chapters: 'id, seriesId',
+      progress: 'seriesId, updatedAt',
+      settings: 'key',
+      imageBytes: 'key, chapterId, tier, lastAccess',
+      downloads: 'chapterId, seriesId, status',
+      library: 'seriesId, shelf, notify, lastReadAt, lastUpdatedAt',
+      bubbles: 'key, chapterId',
     })
   }
 }

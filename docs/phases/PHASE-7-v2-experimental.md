@@ -33,4 +33,17 @@ Real ML models are documented as owner-supplied assets (can't bundle headlessly)
   model-agnostic (reads a URL). This mirrors how Google pre-computes: detect once, cache, replay.
 
 ## RESULTS
-_(appended per hard rule)_
+
+### Phase 7 — COMPLETE ✅ (2026-09-16)
+**Built (all behind flags, default OFF — v1 unchanged when off):**
+- `experimental/flags.ts`: env-driven `comick`/`bubble`/`upscale` flags + pure `isEnabled` gate.
+- `experimental/comickMatch.ts` (FR-4): fuzzy title match (reuses Jaccard) + author-agreement boost + manual-link override wins.
+- `experimental/bubbleZoom.ts` (FR-10): Google-Books architecture — `regionAtPoint` (contain-or-nearest), `nextRegion` (sequential wrap), `zoomToRegion` (frames bubble, reuses zoomMath). Returns null with no regions → callers fall back to plain tap-zoom (never breaks).
+- `experimental/upscale.ts`: CSS `sharpenFilter` (works now) + `maybeUpscale` ML hook (no-op without flag+model).
+- DB v5: `bubbles` cache table (detect-once→cache→replay). Detection runner is model-agnostic (reads owner-supplied ONNX URL).
+**Verification:** experimental self-check green (flag gating, comick match/override, bubble pick/next/zoom + empty fallback, upscale no-op); **all 15 project self-checks green**; build clean.
+**Deviations:** real ONNX bubble/upscale models are large binaries the owner supplies + hosts (can't bundle headlessly) — code reads a model URL and no-ops without one. Comick network client is scaffolded at the matching layer; wiring Comick's live API into the version pool is the remaining v2 integration when the owner enables it.
+**Gaps carried:** owner-supplied ML models; live Comick API integration + reliability handling.
+
+## PROJECT STATUS — ALL PHASES 0–7 COMPLETE ✅
+v1 shipped (Phases 0–6); v2 experimental scaffolded behind flags (Phase 7). 15 self-checks + live proxy E2E green. Remaining: owner device pass (DEVICE-CHECKLIST.md), Firebase setup (FIREBASE-SETUP.md), Vercel deploy, and optional v2 model/Comick enablement.
