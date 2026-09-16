@@ -36,6 +36,28 @@ export default defineConfig({
               expiration: { maxEntries: 30, maxAgeSeconds: 60 * 60 * 24 * 30 },
             },
           },
+          // Chapter lists / pages / MD API: network first, fall back to last-known
+          // response when offline (downloaded chapters stay readable end-to-end).
+          {
+            urlPattern: /^https:\/\/yomu-image-proxy\..*\.workers\.dev\/(scrape\?site=kakalot&action=(chapters|pages|search).*|api\/.*)$/,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'api-json',
+              networkTimeoutSeconds: 15,
+              expiration: { maxEntries: 300, maxAgeSeconds: 60 * 60 * 24 * 14 },
+              cacheableResponse: { statuses: [200] },
+            },
+          },
+          // Covers: tiny, cache-first for instant shelves + offline covers.
+          {
+            urlPattern: /^https:\/\/yomu-image-proxy\..*\.workers\.dev\/scrape\?site=kakalot&action=img.*cover.*$/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'covers',
+              expiration: { maxEntries: 300, maxAgeSeconds: 60 * 60 * 24 * 30 },
+              cacheableResponse: { statuses: [200] },
+            },
+          },
         ],
       },
       manifest: {
@@ -47,9 +69,9 @@ export default defineConfig({
         display: 'standalone',
         orientation: 'portrait',
         icons: [
+          { src: '/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any maskable' },
+          { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
           { src: '/icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any maskable' },
-          // ponytail: SVG icon works for install; add rasterized 192/512 PNGs on-device
-          // if a launcher needs them (DEVICE-CHECKLIST).
         ],
       },
     }),

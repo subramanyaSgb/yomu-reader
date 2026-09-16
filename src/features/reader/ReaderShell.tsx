@@ -160,8 +160,10 @@ export default function ReaderShell({ seriesId, seriesSource, seriesType, startC
     return []
   }, [activeSource, mdReadableChapters, kkFeed.data])
 
-  const chapterRefs: ChapterRef[] = resolved.map((c) => ({
-    id: overrides[c.number ?? '__null__'] ?? c.selectedVersionId,
+  // Overrides keyed by chapter INDEX — numbers repeat across seasons (Tower of God
+  // has "S1 Chapter 1" and "S2 Chapter 1"), which made number keys collide.
+  const chapterRefs: ChapterRef[] = resolved.map((c, i) => ({
+    id: overrides[String(i)] ?? c.selectedVersionId,
     number: c.number,
     source: activeSource,
   }))
@@ -384,7 +386,7 @@ export default function ReaderShell({ seriesId, seriesSource, seriesType, startC
           versions={currentResolved.versions}
           selectedId={chapterRefs[chapterIndex].id}
           onPick={(vid) => {
-            setOverrides((o) => ({ ...o, [currentResolved.number ?? '__null__']: vid }))
+            setOverrides((o) => ({ ...o, [String(chapterIndex)]: vid }))
             setSheet(null)
           }}
           onClose={() => setSheet(null)}

@@ -58,6 +58,13 @@ export async function kkPages(chapterId: string): Promise<KakalotPage[]> {
   return data.pages
 }
 
+/** Live source status (edge-cached 5 min) for the in-app health banner. */
+export async function kkHealth(): Promise<{ weebcentral: boolean; comizy: boolean }> {
+  const res = await fetch(new URL('/health', PROXY_BASE).toString())
+  if (!res.ok) throw new Error(`health ${res.status}`)
+  return res.json()
+}
+
 /** Proxied cover URL for a WeebCentral series id ("{ULID}/{Slug}"). */
 export function kkCoverUrl(seriesId: string): string {
   const ulid = seriesId.split('/')[0]

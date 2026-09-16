@@ -6,6 +6,8 @@ import { useShelves, shelfOf, type Shelf } from '../shelf/shelf'
 import { useReadSet } from '../reader/readTracking'
 import { restoreProgress } from '../reader/resume'
 import { saveSeriesMeta } from '../shelf/seriesMeta'
+import { kkPages, buildKakalotImageUrl } from '../../lib/kakalot/client'
+import { downloadChapter, isDownloaded } from '../offline/downloads'
 import {
   useManga, useChapterFeed, mangaEnTitle, mangaCoverUrl,
   type MDChapter,
@@ -106,6 +108,28 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
   const { readSet, toggle: toggleRead, markMany } = useReadSet(readSeriesId)
   // Bulk-mark sheet target ("mark read up to chapter X in one tap")
   const [bulkTarget, setBulkTarget] = useState<{ id: string; number: string | null } | null>(null)
+  // Offline download sheet + progress
+  const [dlSheet, setDlSheet] = useState(false)
+  const [dl, setDl] = useState<{ done: number; total: number; running: boolean } | null>(null)
+
+  async function startDownload(count: number) {
+    const asc = kkFeed.data?.chapters ?? []
+    if (!asc.length || !readSeriesId) return
+    const contIdx = lastReadChapterId ? asc.findIndex(c => c.id === lastReadChapterId) : -1
+    const targets: typeof asc = []
+    for (let i = contIdx + 1; i < asc.length && targets.length < count; i++) {
+      if (!(await isDownloaded(asc[i].id))) targets.push(asc[i])
+    }
+    setDl({ done: 0, total: targets.length, running: true })
+    for (let i = 0; i < targets.length; i++) {
+      try {
+        const pages = await kkPages(targets[i].id)
+        const proxyUrls = pages.map(p => buildKakalotImageUrl(p.src, targets[i].id))
+        await downloadChapter({ chapterId: targets[i].id, seriesId: readSeriesId, proxyUrls }, 'range')
+      } catch { /* keep going — partial downloads are fine */ }
+      setDl({ done: i + 1, total: targets.length, running: i + 1 < targets.length })
+    }
+  }
   const [lastReadChapterId, setLastReadChapterId] = useState<string | null>(null)
   useEffect(() => {
     if (!readSeriesId) return
@@ -163,7 +187,7 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
             <ArrowLeft size={20} />
           </button>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button style={{ width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--y-ov2)', borderRadius: 12, border: 'none', cursor: 'pointer', color: 'var(--y-mid)' }}>
+            <button onClick={() => { if (showKkChapters && kkChapters.length) setDlSheet(true) }} style={{ width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--y-ov2)', borderRadius: 12, border: 'none', cursor: 'pointer', color: 'var(--y-mid)' }}>
               <Download size={18} />
             </button>
           </div>
@@ -389,6 +413,38 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
             </div>
           )
         })()}
+
+        {/* Offline download sheet */}
+        {dlSheet && (
+          <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'flex-end', background: 'rgba(0,0,0,0.6)' }} onClick={() => { if (!dl?.running) setDlSheet(false) }}>
+            <div style={{ width: '100%', borderRadius: '20px 20px 0 0', background: 'var(--y-surf)', border: '1px solid var(--y-line)', padding: '20px 18px 30px' }} onClick={e => e.stopPropagation()}>
+              <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--y-hi)', marginBottom: 6 }}>Download for offline</div>
+              <p style={{ fontSize: 11.5, fontWeight: 500, color: 'var(--y-dim)', marginBottom: 16, lineHeight: 1.5 }}>
+                Saves chapters after your continue point to this device. They stay readable without internet.
+              </p>
+              {dl == null && [10, 25, 50].map(n => (
+                <button key={n} onClick={() => void startDownload(n)}
+                  style={{ width: '100%', height: 48, borderRadius: 12, border: '1px solid var(--y-line)', background: 'var(--y-surf2)', color: 'var(--y-hi)', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', marginBottom: 10 }}>
+                  Next {n} chapters
+                </button>
+              ))}
+              {dl != null && (
+                <div style={{ marginBottom: 14 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--y-hi)', marginBottom: 8 }}>
+                    {dl.running ? `Downloading… ${dl.done}/${dl.total} chapters` : (dl.total === 0 ? 'Nothing new to download.' : `Done — ${dl.done} chapters saved.`)}
+                  </div>
+                  <div style={{ height: 8, borderRadius: 4, background: 'var(--y-line)', overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: `${dl.total ? Math.round((dl.done / dl.total) * 100) : 100}%`, background: 'var(--y-p)', transition: 'width 0.3s' }} />
+                  </div>
+                </div>
+              )}
+              <button onClick={() => { if (!dl?.running) { setDlSheet(false); setDl(null) } }}
+                style={{ width: '100%', height: 44, borderRadius: 12, border: 'none', background: 'none', color: dl?.running ? 'var(--y-line)' : 'var(--y-dim)', fontSize: 13, fontWeight: 700, cursor: dl?.running ? 'default' : 'pointer' }}>
+                {dl?.running ? 'Downloading — keep the app open' : 'Close'}
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Sticky CTA */}
         <div style={{ position: 'sticky', bottom: 0, padding: '0 18px 20px', background: 'linear-gradient(to top, var(--y-bg) 45%, transparent)', zIndex: 3 }}>

@@ -1,14 +1,16 @@
 // One screen per shelf: Reading / Want to Read / Completed. The whole app is these
 // three grids over the curated catalog (src/catalog.ts) — no external discovery.
 
-import { useEffect, useState } from 'react'
-import { Search, X, CalendarClock } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Search, X, CalendarClock, Settings } from 'lucide-react'
+import { useQuery, useQueries } from '@tanstack/react-query'
 import { CATALOG, type CatalogEntry } from '../../catalog'
-import { kkCoverUrl } from '../../lib/kakalot/client'
+import { kkCoverUrl, kkChapters, kkHealth } from '../../lib/kakalot/client'
 import { coverHue } from '../../components/CoverGradient'
 import { getReadList } from '../reader/readTracking'
 import { getSeriesMeta } from './seriesMeta'
 import { getProgress } from '../../lib/db/repo'
+import { exportBackup, importBackup } from '../backup/backup'
 import { useShelves, shelfOf, type Shelf } from './shelf'
 import type { SeriesSource } from '../../App'
 
@@ -26,7 +28,7 @@ const EMPTY_HINT: Record<Shelf, string> = {
   completed: 'Nothing finished yet — mark a series Completed from its page.',
 }
 
-function Card({ entry, info, onOpen }: { entry: CatalogEntry; info?: CardInfo; onOpen: (id: string, src: SeriesSource) => void }) {
+function Card({ entry, info, hasNew, onOpen }: { entry: CatalogEntry; info?: CardInfo; hasNew?: boolean; onOpen: (id: string, src: SeriesSource) => void }) {
   const hue = coverHue(entry.id || entry.title)
   const unavailable = entry.unavailable === true
   return (
@@ -43,6 +45,9 @@ function Card({ entry, info, onOpen }: { entry: CatalogEntry; info?: CardInfo; o
           <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 10 }}>
             <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--y-dim)', textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: 'center' }}>Not on source yet</span>
           </div>
+        )}
+        {hasNew && (
+          <span style={{ position: 'absolute', top: 6, left: 6, background: 'var(--y-a)', color: 'var(--y-onp)', fontSize: 9, fontWeight: 800, borderRadius: 7, padding: '3px 6px', letterSpacing: '0.05em' }}>NEW</span>
         )}
         {/* read-% badge (bottom-left) + last-read chapter (bottom-right) */}
         {info?.pct != null && info.pct > 0 && (
@@ -74,7 +79,37 @@ export default function ShelfScreen({
   const { shelves, loaded } = useShelves()
   const [term, setTerm] = useState('')
   const [info, setInfo] = useState<Record<string, CardInfo>>({})
+  const [backupSheet, setBackupSheet] = useState(false)
+  const [backupMsg, setBackupMsg] = useState('')
+  const fileRef = useRef<HTMLInputElement>(null)
   const q = term.trim().toLowerCase()
+
+  // Source health → banner when a source is down (checked at most every 5 min).
+  const health = useQuery({ queryKey: ['health'], queryFn: kkHealth, staleTime: 5 * 60 * 1000, retry: 1 })
+  const downSources = health.data
+    ? ([health.data.weebcentral ? null : 'WeebCentral', health.data.comizy ? null : 'Comizy'].filter(Boolean) as string[])
+    : []
+
+  // NEW-chapter detection for the Reading shelf (chapter lists are 10-min cached).
+  const readingIds = CATALOG.filter(e => !e.unavailable && shelfOf(shelves, e.id) === 'reading').map(e => e.id).slice(0, 20)
+  const newChecks = useQueries({
+    queries: (shelf === 'reading' ? readingIds : []).map(id => ({
+      queryKey: ['kk', 'chapters', id],
+      queryFn: () => kkChapters(id),
+      staleTime: 10 * 60 * 1000,
+      retry: 1,
+    })),
+  })
+  const hasNewMap: Record<string, boolean> = {}
+  if (shelf === 'reading') {
+    readingIds.forEach((id, i) => {
+      const chs = newChecks[i]?.data?.chapters
+      const latest = chs?.[chs.length - 1]?.number
+      const last = info[id]?.lastNumber
+      hasNewMap[id] = !!(latest && last && parseFloat(latest) > parseFloat(last))
+    })
+  }
+  const anyNew = Object.values(hasNewMap).some(Boolean)
 
   // Local-only card info: read %, last chapter, recency (no network).
   useEffect(() => {
@@ -113,13 +148,26 @@ export default function ShelfScreen({
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
           {onUpcoming && (
-            <button onClick={onUpcoming} aria-label="Upcoming chapters" style={{ width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--y-mid)' }}>
+            <button onClick={onUpcoming} aria-label="Upcoming chapters" style={{ width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--y-mid)', position: 'relative' }}>
               <CalendarClock size={20} />
+              {anyNew && <span style={{ position: 'absolute', top: 9, right: 9, width: 8, height: 8, borderRadius: '50%', background: 'var(--y-a)' }} />}
             </button>
           )}
+          <button onClick={() => { setBackupSheet(true); setBackupMsg('') }} aria-label="Backup" style={{ width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--y-mid)' }}>
+            <Settings size={20} />
+          </button>
           <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--y-dim)' }}>{entries.length} series</span>
         </div>
       </header>
+
+      {/* Source-down banner */}
+      {downSources.length > 0 && (
+        <div style={{ margin: '0 18px 12px', padding: '10px 14px', borderRadius: 12, background: 'rgba(242,193,78,0.12)', border: '1px solid rgba(242,193,78,0.4)' }}>
+          <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--y-a)' }}>
+            {downSources.join(' and ')} {downSources.length > 1 ? 'are' : 'is'} not responding — affected series may not load right now.
+          </span>
+        </div>
+      )}
 
       <h1 style={{ fontSize: 25, fontWeight: 800, letterSpacing: '-0.03em', color: 'var(--y-hi)', padding: '4px 18px 14px' }}>
         {SHELF_TITLE[shelf]}
@@ -151,8 +199,45 @@ export default function ShelfScreen({
       )}
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '14px 12px', padding: '0 18px 24px' }}>
-        {entries.map(e => <Card key={e.title} entry={e} info={info[e.id]} onOpen={onOpen} />)}
+        {entries.map(e => <Card key={e.title} entry={e} info={info[e.id]} hasNew={hasNewMap[e.id]} onOpen={onOpen} />)}
       </div>
+
+      {/* Backup sheet */}
+      {backupSheet && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'flex-end', background: 'rgba(0,0,0,0.6)' }} onClick={() => setBackupSheet(false)}>
+          <div style={{ width: '100%', borderRadius: '20px 20px 0 0', background: 'var(--y-surf)', border: '1px solid var(--y-line)', padding: '20px 18px 30px' }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--y-hi)', marginBottom: 6 }}>Backup</div>
+            <p style={{ fontSize: 11.5, fontWeight: 500, color: 'var(--y-dim)', marginBottom: 16, lineHeight: 1.5 }}>
+              Shelves, progress, exact positions and read marks live only on this device. Export a file now and then; import it to restore on any device.
+            </p>
+            <button onClick={() => { void exportBackup(); setBackupMsg('Backup file downloaded.') }}
+              style={{ width: '100%', height: 48, borderRadius: 12, border: 'none', background: 'var(--y-p)', color: 'var(--y-onp)', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', marginBottom: 10 }}>
+              Export backup
+            </button>
+            <button onClick={() => fileRef.current?.click()}
+              style={{ width: '100%', height: 48, borderRadius: 12, border: '1px solid var(--y-line)', background: 'var(--y-surf2)', color: 'var(--y-hi)', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', marginBottom: 10 }}>
+              Import backup file
+            </button>
+            <input ref={fileRef} type="file" accept="application/json,.json" style={{ display: 'none' }}
+              onChange={async e => {
+                const f = e.target.files?.[0]
+                if (!f) return
+                try {
+                  const r = await importBackup(f)
+                  setBackupMsg(`Restored ${r.settings} settings + ${r.progress} progress records. Reloading…`)
+                  setTimeout(() => location.reload(), 1200)
+                } catch (err) {
+                  setBackupMsg(`Import failed: ${err instanceof Error ? err.message : String(err)}`)
+                }
+              }} />
+            {backupMsg && <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--y-ok)', marginBottom: 10 }}>{backupMsg}</div>}
+            <button onClick={() => setBackupSheet(false)}
+              style={{ width: '100%', height: 44, borderRadius: 12, border: 'none', background: 'none', color: 'var(--y-dim)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+              Close
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

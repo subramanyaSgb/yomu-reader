@@ -403,6 +403,22 @@ export default {
       }
     }
 
+    // /health — live source status for the in-app banner (both checks in parallel,
+    // generous edge cache so shelf opens don't hammer the sources).
+    if (url.pathname === '/health') {
+      const [wc, buddy] = await Promise.all([
+        fetch(`${WC}/series/01J76XYCPSY3C4BNPBRY8JMCBE/full-chapter-list`, {
+          headers: { 'User-Agent': BROWSER_UA },
+          cf: { cacheEverything: true, cacheTtl: 300 },
+        }).then(r => r.ok).catch(() => false),
+        fetch(`${COMIZY_API}/titles/Gj7042Ov/chapters`, {
+          headers: { 'User-Agent': BROWSER_UA, Accept: 'application/json' },
+          cf: { cacheEverything: true, cacheTtl: 300 },
+        }).then(r => r.ok).catch(() => false),
+      ])
+      return json({ weebcentral: wc, comizy: buddy }, origin, 200, 300)
+    }
+
     // /img — MangaDex image proxy
     if (url.pathname === '/img') {
       const target = url.searchParams.get('u')
