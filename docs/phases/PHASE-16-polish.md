@@ -35,3 +35,23 @@ idmap migration. Update-toast behavior takes effect from the NEXT deploy after t
 **Gaps:** auto-download caps at 3 newest chapters (older gaps stay streaming-only);
 migration regenerates read-marks as "everything up to lastNumber" (manual unmarks
 before migration aren't preserved).
+
+## Addendum — deep audit (commits e40d5d0, a432d32)
+
+Owner asked for a no-mistakes deep pass. Line-by-line re-review of the session's code
+found and fixed three latent bugs:
+1. Paged-mode exact resume never applied — PagedRenderer mounted with page 0 before
+   the async restore resolved (`initialPage` read only at mount). Renderers now wait
+   for restore; also kills the chapter-0 flash in scroll mode.
+2. Tab switches could self-revert with overlays open — `replaceState` raced the async
+   `history.go()` and stamped the wrong entry. Tab moved to sessionStorage; history
+   carries only the overlay stack.
+3. Chapters downloaded in the current session weren't served offline until app
+   restart (`staleTime: Infinity` cached the "not downloaded" verdict) — re-checked
+   per mount now.
+
+Perf: Google Fonts `@import` inside tokens.css was a render-blocking serial chain —
+moved to a parallel `<link>` with preconnects (googleapis/gstatic + the worker origin,
+so the first API/cover request skips DNS+TLS). Title fixed (was "yomu-scaffold").
+Lighthouse holds ~80 (lab range 68–93 across runs; variance dominates at this size).
+Build clean, 16/16 self-checks, deploys verified.
