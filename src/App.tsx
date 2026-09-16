@@ -3,16 +3,18 @@ import HomeScreen from './features/discovery/HomeScreen'
 import SearchScreen from './features/discovery/SearchScreen'
 import LibraryScreen from './features/library/LibraryScreen'
 import LocalFilesScreen from './features/localfiles/LocalFilesScreen'
+import ProfileScreen from './features/sync/ProfileScreen'
 import ReaderShell from './features/reader/ReaderShell'
 import type { SeriesType } from './lib/db/schema'
 
-type Tab = 'home' | 'search' | 'library' | 'local'
+type Tab = 'home' | 'search' | 'library' | 'local' | 'profile'
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'home', label: 'Home', icon: '🏠' },
   { id: 'search', label: 'Search', icon: '🔍' },
   { id: 'library', label: 'Library', icon: '📚' },
   { id: 'local', label: 'Local', icon: '📁' },
+  { id: 'profile', label: 'Profile', icon: '👤' },
 ]
 
 export default function App() {
@@ -41,6 +43,7 @@ export default function App() {
         {tab === 'search' && <SearchScreen onOpen={openSeries} />}
         {tab === 'library' && <LibraryScreen onOpen={openSeries} />}
         {tab === 'local' && <LocalFilesScreen />}
+        {tab === 'profile' && <ProfileScreen />}
       </main>
 
       <nav className="flex border-t border-neutral-800 bg-neutral-950">
