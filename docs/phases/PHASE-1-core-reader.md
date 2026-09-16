@@ -64,4 +64,12 @@ Read a manhwa end-to-end (seamless scroll across a chapter boundary) and a manga
 ---
 
 ## RESULTS
-_(appended as batches complete — per the documentation hard rule)_
+
+### Batch A — Task 1 (DB) + Task 2 (version resolver) ✅ (2026-09-16)
+**Built (Task 1):** `src/lib/db/schema.ts` (Dexie v1: `series`, `chapters`, `progress`, `settings` — only Phase-1 tables, per YAGNI) + `src/lib/db/repo.ts` (put/get series, chapters, progress, typed settings, `readerMemoryKey`). Progress `position` is a discriminated union (paged pageIndex | scroll {imageIndex, offsetPct}).
+**Built (Task 2):** `src/features/reader/versionResolver.ts` — pure comix-model resolver: group-by-number → prefer-one-group → gap-fill by likes→pages→recency → continuous numeric-ordered list + per-number version pool for the switcher. Plus `inferPreferredGroup` (widest-coverage default).
+**Verification:**
+- DB self-check (fake-indexeddb): series/progress/reader-memory round-trip ✅ (scroll anchor preserved).
+- Resolver self-check: prefer-group, gap-fill, likes-ranking, numeric ordering (10 after 3), switcher pool best-first, tiebreak likes→pages→recency — all ✅.
+- App build green.
+**Deviations:** none. **Gaps carried:** progress is written to DB but not yet persisted-on-close/synced (Phase 2/4, as planned).
