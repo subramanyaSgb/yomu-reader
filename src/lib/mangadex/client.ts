@@ -5,8 +5,9 @@
 
 const API_BASE = 'https://api.mangadex.org'
 
-// Identify the client (MangaDex asks scrapers/apps to identify themselves).
-const USER_AGENT = 'Yomu/0.1 (personal-use reader)'
+// Note: MangaDex asks clients to identify via User-Agent, but browsers FORBID setting it
+// and any custom header forces a CORS preflight that MangaDex 403s. So from the browser we
+// send a bare GET (the rate limiter below is our good-citizen mechanism instead).
 
 // Stay comfortably under the ~5 req/s ceiling.
 const MIN_INTERVAL_MS = 250 // -> max 4 req/s
@@ -110,9 +111,11 @@ export async function mdGet<T>(
 
   return limiter.schedule(async () => {
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-      const res = await fetch(url.toString(), {
-        headers: { 'User-Agent': USER_AGENT, Accept: 'application/json' },
-      })
+      // IMPORTANT: send NO custom headers. Browsers forbid setting User-Agent, and any
+      // non-simple header triggers a CORS preflight (OPTIONS) which MangaDex's anti-abuse
+      // layer returns 403 for — that blocks every call and yields empty results. A bare
+      // GET is a "simple request" (no preflight) and works from the browser.
+      const res = await fetch(url.toString())
 
       if (res.ok) return (await res.json()) as T
 
