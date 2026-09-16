@@ -1,81 +1,117 @@
-import { useEffect, useState } from 'react'
-import { loadTheme } from './features/settings/theme'
-import HomeScreen from './features/discovery/HomeScreen'
-import SearchScreen from './features/discovery/SearchScreen'
-import LibraryScreen from './features/library/LibraryScreen'
-import LocalFilesScreen from './features/localfiles/LocalFilesScreen'
-import ProfileScreen from './features/sync/ProfileScreen'
-import ReaderShell from './features/reader/ReaderShell'
+import { useEffect, useRef, useState } from 'react'
+import { loadStoredTheme } from './styles/theme'
+import { ToastProvider } from './components/Toast'
+import BottomNav from './components/BottomNav'
 import OfflineBanner from './features/reliability/OfflineBanner'
 import OnboardingScreen from './features/onboarding/OnboardingScreen'
 import { hasSeenOnboarding } from './features/onboarding/Onboarding'
+import HomeScreen from './features/discovery/HomeScreen'
+import SearchScreen from './features/discovery/SearchScreen'
+import SeriesDetail from './features/discovery/SeriesDetail'
+import LibraryScreen from './features/library/LibraryScreen'
+import StorageScreen from './features/storage/StorageScreen'
+import ProfileScreen from './features/sync/ProfileScreen'
+import LocalFilesScreen from './features/localfiles/LocalFilesScreen'
+import UnreadScreen from './features/discovery/UnreadScreen'
+import ReaderShell from './features/reader/ReaderShell'
 import type { SeriesType } from './lib/db/schema'
 
-type Tab = 'home' | 'search' | 'library' | 'local' | 'profile'
+export type Tab = 'home' | 'search' | 'library' | 'storage' | 'profile'
 export type SeriesSource = 'mangadex' | 'kakalot'
 
-const TABS: { id: Tab; label: string; icon: string }[] = [
-  { id: 'home', label: 'Home', icon: '🏠' },
-  { id: 'search', label: 'Search', icon: '🔍' },
-  { id: 'library', label: 'Library', icon: '📚' },
-  { id: 'local', label: 'Local', icon: '📁' },
-  { id: 'profile', label: 'Profile', icon: '👤' },
-]
+// Non-tab overlaid screens
+type OverlayScreen =
+  | { kind: 'detail'; id: string; source: SeriesSource }
+  | { kind: 'reader'; id: string; source: SeriesSource; type: SeriesType }
+  | { kind: 'unread' }
+  | { kind: 'local' }
 
 export default function App() {
   const [tab, setTab] = useState<Tab>('home')
-  const [reading, setReading] = useState<{ id: string; source: SeriesSource; type: SeriesType } | null>(null)
+  const prevTabRef = useRef<Tab>('home')
+  const [overlay, setOverlay] = useState<OverlayScreen | null>(null)
   const [onboarding, setOnboarding] = useState<boolean | null>(null)
 
   useEffect(() => {
-    void loadTheme()
-    hasSeenOnboarding().then((seen) => setOnboarding(!seen))
+    loadStoredTheme()
+    hasSeenOnboarding().then(seen => setOnboarding(!seen))
   }, [])
+
+  // Back-nav guard: never navigate to the screen already showing
+  function goBack() {
+    if (!overlay) {
+      // already at top — shouldn't happen
+      return
+    }
+    setOverlay(null)
+  }
+
+  function openSeries(id: string, source: SeriesSource = 'mangadex') {
+    setOverlay({ kind: 'detail', id, source })
+  }
+
+  function openReader(id: string, source: SeriesSource, type: SeriesType = 'manga') {
+    setOverlay({ kind: 'reader', id, source, type })
+  }
+
+  function switchTab(t: Tab) {
+    if (t === tab && !overlay) return // guard: already showing
+    prevTabRef.current = tab
+    setOverlay(null)
+    setTab(t)
+  }
 
   if (onboarding === null) return null
   if (onboarding) return <OnboardingScreen onDone={() => setOnboarding(false)} />
 
-  const openSeries = (id: string, source: SeriesSource = 'mangadex') =>
-    setReading({ id, source, type: 'manga' })
-
-  if (reading) {
+  // Reader is fully immersive — no BottomNav, no banner
+  if (overlay?.kind === 'reader') {
     return (
-      <div className="h-screen">
-        <ReaderShell
-          seriesId={reading.id}
-          seriesSource={reading.source}
-          seriesType={reading.type}
-          onClose={() => setReading(null)}
-        />
-      </div>
+      <ToastProvider>
+        <div style={{ height: '100dvh', background: 'var(--y-black)' }}>
+          <ReaderShell
+            seriesId={overlay.id}
+            seriesSource={overlay.source}
+            seriesType={overlay.type}
+            onClose={goBack}
+          />
+        </div>
+      </ToastProvider>
     )
   }
 
   return (
-    <div className="flex h-screen flex-col">
-      <OfflineBanner />
-      <main className="flex-1 overflow-y-auto">
-        {tab === 'home' && <HomeScreen onOpen={openSeries} />}
-        {tab === 'search' && <SearchScreen onOpen={openSeries} />}
-        {tab === 'library' && <LibraryScreen onOpen={openSeries} />}
-        {tab === 'local' && <LocalFilesScreen />}
-        {tab === 'profile' && <ProfileScreen />}
-      </main>
+    <ToastProvider>
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100dvh', background: 'var(--y-bg)' }}>
+        <OfflineBanner />
 
-      <nav className="flex border-t border-neutral-800 bg-neutral-950">
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
-            className={`flex flex-1 flex-col items-center gap-0.5 py-2 text-xs ${
-              tab === t.id ? 'text-violet-400' : 'text-neutral-500'
-            }`}
-          >
-            <span className="text-lg">{t.icon}</span>
-            {t.label}
-          </button>
-        ))}
-      </nav>
-    </div>
+        <main style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
+          {overlay?.kind === 'detail' && (
+            <SeriesDetail
+              id={overlay.id}
+              source={overlay.source}
+              onBack={goBack}
+              onRead={() => openReader(overlay.id, overlay.source)}
+            />
+          )}
+          {overlay?.kind === 'local' && (
+            <LocalFilesScreen onBack={goBack} />
+          )}
+          {overlay?.kind === 'unread' && (
+            <UnreadScreen onBack={goBack} onOpen={openSeries} />
+          )}
+          {!overlay && tab === 'home'    && <HomeScreen onOpen={openSeries} onUnread={() => setOverlay({ kind: 'unread' })} />}
+          {!overlay && tab === 'search'  && <SearchScreen onOpen={openSeries} />}
+          {!overlay && tab === 'library' && <LibraryScreen onOpen={openSeries} />}
+          {!overlay && tab === 'storage' && <StorageScreen />}
+          {!overlay && tab === 'profile' && <ProfileScreen onLocalFiles={() => setOverlay({ kind: 'local' })} />}
+        </main>
+
+        {/* BottomNav: hidden inside readers and full-overlay screens */}
+        {!overlay && (
+          <BottomNav active={tab} onTab={switchTab} />
+        )}
+      </div>
+    </ToastProvider>
   )
 }

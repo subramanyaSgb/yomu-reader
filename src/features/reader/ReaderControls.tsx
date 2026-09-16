@@ -1,6 +1,3 @@
-// Reader controls panel (FR-11): RTL/LTR, fit, gap color, brightness dim. Single/double-page
-// (landscape) is a Phase 6 device concern (flagged). Values persist via ReaderMemory.
-
 import type { ReaderMemory, FitMode } from './useReaderMemory'
 
 interface Props {
@@ -13,60 +10,40 @@ const FITS: FitMode[] = ['width', 'height', 'original']
 
 export default function ReaderControls({ mem, update, onClose }: Props) {
   return (
-    <div className="absolute inset-0 z-30 flex items-end bg-black/60" onClick={onClose}>
-      <div className="w-full rounded-t-2xl bg-neutral-900 p-4" onClick={(e) => e.stopPropagation()}>
-        <div className="mb-3 text-sm font-medium text-neutral-300">Reader settings</div>
+    <div style={{ position: 'absolute', inset: 0, zIndex: 30, display: 'flex', alignItems: 'flex-end', background: 'rgba(0,0,0,0.6)' }} onClick={onClose}>
+      <div style={{ width: '100%', borderRadius: '20px 20px 0 0', background: 'var(--y-surf)', border: '1px solid var(--y-line)', padding: '20px 18px 32px' }} onClick={e => e.stopPropagation()}>
+        <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--y-hi)', marginBottom: 20 }}>Reader settings</div>
 
         <Row label="Direction">
-          <Toggle
-            active={mem.rtl}
-            on="RTL"
-            off="LTR"
-            onChange={(v) => update({ rtl: v })}
-          />
+          <div style={{ display: 'flex', gap: 6 }}>
+            {(['RTL', 'LTR'] as const).map(d => {
+              const active = d === 'RTL' ? mem.rtl : !mem.rtl
+              return (
+                <button key={d} onClick={() => update({ rtl: d === 'RTL' })} style={{ height: 36, padding: '0 14px', borderRadius: 10, border: '1px solid var(--y-line)', background: active ? 'var(--y-p)' : 'var(--y-surf2)', color: active ? 'var(--y-onp)' : 'var(--y-mid)', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>{d}</button>
+              )
+            })}
+          </div>
         </Row>
 
         <Row label="Fit">
-          <div className="flex gap-2">
-            {FITS.map((f) => (
-              <button
-                key={f}
-                onClick={() => update({ fit: f })}
-                className={`rounded px-3 py-1 text-sm ${
-                  mem.fit === f ? 'bg-violet-600 text-white' : 'bg-neutral-800 text-neutral-300'
-                }`}
-              >
-                {f}
-              </button>
+          <div style={{ display: 'flex', gap: 6 }}>
+            {FITS.map(f => (
+              <button key={f} onClick={() => update({ fit: f })} style={{ height: 36, padding: '0 14px', borderRadius: 10, border: '1px solid var(--y-line)', background: mem.fit === f ? 'var(--y-p)' : 'var(--y-surf2)', color: mem.fit === f ? 'var(--y-onp)' : 'var(--y-mid)', fontSize: 12, fontWeight: 700, cursor: 'pointer', textTransform: 'capitalize' }}>{f}</button>
             ))}
           </div>
         </Row>
 
         <Row label="Page gap">
-          <div className="flex gap-2">
-            {['#000000', '#ffffff'].map((c) => (
-              <button
-                key={c}
-                onClick={() => update({ gapColor: c })}
-                style={{ background: c }}
-                className={`h-7 w-7 rounded border ${
-                  mem.gapColor === c ? 'border-violet-500' : 'border-neutral-600'
-                }`}
-              />
+          <div style={{ display: 'flex', gap: 8 }}>
+            {(['#050706', '#E9E9E9'] as const).map(c => (
+              <button key={c} onClick={() => update({ gapColor: c })} style={{ width: 32, height: 32, borderRadius: 8, background: c, border: `2px solid ${mem.gapColor === c ? 'var(--y-p)' : 'var(--y-line)'}`, cursor: 'pointer' }} />
             ))}
           </div>
         </Row>
 
         <Row label="Brightness">
-          <input
-            type="range"
-            min={0}
-            max={0.8}
-            step={0.05}
-            value={mem.brightness}
-            onChange={(e) => update({ brightness: Number(e.target.value) })}
-            className="w-40"
-          />
+          <input type="range" min={0} max={0.8} step={0.05} value={mem.brightness} onChange={e => update({ brightness: Number(e.target.value) })}
+            style={{ width: 140, accentColor: 'var(--y-p)' }} />
         </Row>
       </div>
     </div>
@@ -75,30 +52,9 @@ export default function ReaderControls({ mem, update, onClose }: Props) {
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="mb-3 flex items-center justify-between">
-      <span className="text-sm text-neutral-400">{label}</span>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
+      <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--y-hi)' }}>{label}</span>
       {children}
     </div>
-  )
-}
-
-function Toggle({
-  active,
-  on,
-  off,
-  onChange,
-}: {
-  active: boolean
-  on: string
-  off: string
-  onChange: (v: boolean) => void
-}) {
-  return (
-    <button
-      onClick={() => onChange(!active)}
-      className="rounded bg-neutral-800 px-3 py-1 text-sm text-white"
-    >
-      {active ? on : off}
-    </button>
   )
 }

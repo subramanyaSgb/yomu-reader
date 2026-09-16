@@ -1,0 +1,98 @@
+/* Yomu design tokens — all components use var(--y-*), never hardcoded hex */
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap');
+
+:root, [data-theme="dark"] {
+  --y-bg:   #0A0E0C;
+  --y-surf: #141A17;
+  --y-surf2:#111713;
+  --y-line: #242C28;
+  --y-line2:#1A211D;
+  --y-hi:   #F2F7F4;
+  --y-text: #D8E3DD;
+  --y-mid:  #93A29B;
+  --y-dim:  #71807A;
+  --y-p:    #17B57E;
+  --y-plt:  #3ED6A0;
+  --y-a:    #F2C14E;
+  --y-ok:   #6FC3FF;
+  --y-warn: #E4804A;
+  --y-black:#050706;
+  --y-onp:  #05100B;
+  --y-pa:   rgba(23,181,126,0.16);
+  --y-aa:   rgba(242,193,78,0.16);
+  --y-ov:   rgba(10,14,12,0.92);
+  --y-ov2:  rgba(10,14,12,0.5);
+}
+
+[data-theme="light"] {
+  --y-bg:   #F6F7F5;
+  --y-surf: #FFFFFF;
+  --y-surf2:#EDF0EC;
+  --y-line: #DBE0D9;
+  --y-line2:#E7EBE5;
+  --y-hi:   #0E1512;
+  --y-text: #26302B;
+  --y-mid:  #5C6B64;
+  --y-dim:  #7C8A83;
+  --y-p:    #0E8F62;
+  --y-plt:  #0B7A54;
+  --y-a:    #A8741A;
+  --y-ok:   #1E7FB8;
+  --y-warn: #C2621F;
+  --y-black:#1B211E;
+  --y-onp:  #FFFFFF;
+  --y-pa:   rgba(14,143,98,0.12);
+  --y-aa:   rgba(168,116,26,0.14);
+  --y-ov:   rgba(246,247,245,0.94);
+  --y-ov2:  rgba(20,26,23,0.42);
+}
+
+[data-theme="sepia"] {
+  --y-bg:   #F1E3C9;
+  --y-surf: #E9DABB;
+  --y-surf2:#E1D0AF;
+  --y-line: #D0BC98;
+  --y-line2:#DACBA9;
+  --y-hi:   #2C2114;
+  --y-text: #3E3020;
+  --y-mid:  #6B5A42;
+  --y-dim:  #8A7659;
+  --y-p:    #8A5A2B;
+  --y-plt:  #6E4620;
+  --y-a:    #A8551F;
+  --y-ok:   #4A6E52;
+  --y-warn: #9C4A16;
+  --y-black:#2A2114;
+  --y-onp:  #FBF3E4;
+  --y-pa:   rgba(138,90,43,0.14);
+  --y-aa:   rgba(168,85,31,0.14);
+  --y-ov:   rgba(241,227,201,0.94);
+  --y-ov2:  rgba(44,33,20,0.42);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body, #root {
+  height: 100%;
+  font-family: 'Outfit', sans-serif;
+  background: var(--y-bg);
+  color: var(--y-text);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Hide scrollbars on rails */
+.hide-scrollbar { scrollbar-width: none; }
+.hide-scrollbar::-webkit-scrollbar { display: none; }
+
+/* Sheet backdrop */
+.sheet-backdrop {
+  position: fixed; inset: 0; z-index: 40;
+  background: rgba(0,0,0,0.55);
+  animation: fadeIn 180ms ease;
+}
+@keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
+@keyframes slideUp { from { transform: translateY(100%) } to { transform: translateY(0) } }
+
+.sheet-panel {
+  animation: slideUp 260ms cubic-bezier(.4,0,.2,1);
+}

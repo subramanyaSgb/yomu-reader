@@ -186,27 +186,26 @@ export default function ReaderShell({ seriesId, seriesSource, seriesType, onClos
   const sourceLabel = activeSource === 'kakalot' ? ' (via Mangakakalot)' : ''
 
   return (
-    <div className="relative h-full bg-black" style={{ background: mem.gapColor }}>
-      <div className="absolute left-0 right-0 top-0 z-20 flex items-center justify-between p-3">
-        <button onClick={onClose} className="rounded-full bg-black/60 px-3 py-1 text-sm text-white">
-          ← Back
+    <div style={{ position: 'relative', height: '100%', background: mem.gapColor || 'var(--y-black)' }}>
+      {/* Top HUD */}
+      <div style={{
+        position: 'absolute', top: 0, left: 0, right: 0, zIndex: 20,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 10px',
+        background: 'linear-gradient(to bottom, rgba(0,0,0,0.75), transparent)',
+      }}>
+        <button onClick={onClose} style={{ width: 44, height: 44, borderRadius: 12, background: 'rgba(255,255,255,0.1)', border: 'none', cursor: 'pointer', color: '#fff', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>
+          ←
         </button>
-        <div className="flex items-center gap-2">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {sourceLabel && (
-            <span className="rounded-full bg-orange-900/60 px-2 py-1 text-xs text-orange-300">
+            <span style={{ background: 'rgba(242,193,78,0.2)', color: 'var(--y-a)', fontSize: 9.5, fontWeight: 800, borderRadius: 20, padding: '4px 10px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
               Kakalot
             </span>
           )}
-          <button
-            onClick={() => setSheet('versions')}
-            className="rounded-full bg-black/60 px-3 py-1 text-sm text-white"
-          >
+          <button onClick={() => setSheet('versions')} style={{ height: 36, padding: '0 12px', borderRadius: 20, background: 'rgba(255,255,255,0.1)', border: 'none', cursor: 'pointer', color: '#fff', backdropFilter: 'blur(8px)', fontSize: 12, fontWeight: 700 }}>
             Version
           </button>
-          <button
-            onClick={() => setSheet('controls')}
-            className="rounded-full bg-black/60 px-3 py-1 text-sm text-white"
-          >
+          <button onClick={() => setSheet('controls')} style={{ width: 44, height: 44, borderRadius: 12, background: 'rgba(255,255,255,0.1)', border: 'none', cursor: 'pointer', color: '#fff', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>
             ⚙
           </button>
         </div>

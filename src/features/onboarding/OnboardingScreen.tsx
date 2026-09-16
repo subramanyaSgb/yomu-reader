@@ -1,48 +1,87 @@
-// 3-slide onboarding (FR-35): reading modes, bubble zoom, offline. Skippable; shown once.
 import { useState } from 'react'
 import { markOnboardingSeen } from './Onboarding'
+import { CoverGradient } from '../../components/CoverGradient'
 
-const SLIDES = [
-  { icon: '📖', title: 'Three reading modes', body: 'Vertical scroll for manhwa, page-flip for manga, plus your own files.' },
-  { icon: '🔍', title: 'Tap to zoom', body: 'Tap any panel to zoom in at that point; pinch and pan freely.' },
-  { icon: '📥', title: 'Read offline', body: 'Download chapters to read anywhere — they stay until you delete them.' },
+const STEPS = [
+  {
+    title: 'Three ways to read',
+    body: 'Manhwa and manhua open in seamless vertical scroll; manga opens paged, right-to-left, with a finger-following 3D page curl. Your own CBZ, PDF and image folders open too.',
+    cta: 'Next',
+  },
+  {
+    title: 'Tap to zoom a bubble',
+    body: 'Tap anywhere to zoom at that exact point. Where bubble detection is available the zoom snaps to the speech bubble — and silently falls back to tap-zoom when it is not.',
+    cta: 'Next',
+  },
+  {
+    title: 'Reads offline',
+    body: 'Download a chapter, a range, or a whole series. Downloads are permanent; browsing cache is temporary and evicted first when space runs low.',
+    cta: null,
+  },
 ]
 
 export default function OnboardingScreen({ onDone }: { onDone: () => void }) {
-  const [i, setI] = useState(0)
-  const finish = () => {
-    void markOnboardingSeen()
+  const [step, setStep] = useState(0)
+
+  async function finish() {
+    await markOnboardingSeen()
     onDone()
   }
 
-  const slide = SLIDES[i]
-  const last = i === SLIDES.length - 1
+  const s = STEPS[step]
 
   return (
-    <div className="flex h-screen flex-col items-center justify-center gap-4 bg-black p-8 text-center">
-      <div className="text-6xl">{slide.icon}</div>
-      <h2 className="text-xl font-bold text-white">{slide.title}</h2>
-      <p className="max-w-xs text-neutral-400">{slide.body}</p>
-
-      <div className="mt-4 flex gap-1">
-        {SLIDES.map((_, idx) => (
-          <span
-            key={idx}
-            className={`h-1.5 w-6 rounded ${idx === i ? 'bg-violet-500' : 'bg-neutral-700'}`}
-          />
-        ))}
+    <div style={{ height: '100dvh', display: 'flex', flexDirection: 'column', background: 'var(--y-bg)', overflow: 'hidden' }}>
+      {/* Top gradient art ~60% */}
+      <div style={{ position: 'relative', flex: '0 0 60%' }}>
+        <CoverGradient id={`onboard-${step}`} className="absolute inset-0" />
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, var(--y-bg) 12%, transparent 70%)' }} />
+        <button
+          onClick={finish}
+          style={{
+            position: 'absolute', top: 20, right: 18,
+            background: 'var(--y-ov2)', color: 'var(--y-mid)', border: 'none',
+            borderRadius: 20, height: 40, padding: '0 16px',
+            fontSize: 12, fontWeight: 600, cursor: 'pointer',
+          }}
+        >Skip</button>
       </div>
 
-      <div className="mt-4 flex gap-3">
-        <button onClick={finish} className="px-4 py-2 text-sm text-neutral-500">
-          Skip
-        </button>
-        <button
-          onClick={() => (last ? finish() : setI(i + 1))}
-          className="rounded-lg bg-violet-600 px-6 py-2 text-white"
-        >
-          {last ? 'Start reading' : 'Next'}
-        </button>
+      {/* Bottom block */}
+      <div style={{ flex: 1, padding: '0 24px 40px', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', gap: 20 }}>
+        {/* 3-segment progress bar */}
+        <div style={{ display: 'flex', gap: 6 }}>
+          {STEPS.map((_, i) => (
+            <div key={i} style={{
+              flex: 1, height: 3, borderRadius: 2,
+              background: i <= step ? 'var(--y-a)' : 'var(--y-line)',
+              transition: 'background 260ms',
+            }} />
+          ))}
+        </div>
+
+        <div>
+          <h1 style={{ fontSize: 27, fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.1, color: 'var(--y-hi)', marginBottom: 12 }}>{s.title}</h1>
+          <p style={{ fontSize: 13, fontWeight: 500, color: 'var(--y-mid)', lineHeight: 1.6 }}>{s.body}</p>
+        </div>
+
+        {s.cta ? (
+          <button onClick={() => setStep(step + 1)} style={{
+            height: 52, borderRadius: 13, background: 'var(--y-p)', color: 'var(--y-onp)',
+            fontSize: 15, fontWeight: 700, border: 'none', cursor: 'pointer',
+          }}>{s.cta}</button>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <button onClick={finish} style={{
+              height: 52, borderRadius: 13, background: 'var(--y-p)', color: 'var(--y-onp)',
+              fontSize: 15, fontWeight: 700, border: 'none', cursor: 'pointer',
+            }}>Continue with Google</button>
+            <button onClick={finish} style={{
+              height: 44, background: 'none', border: 'none', cursor: 'pointer',
+              color: 'var(--y-mid)', fontSize: 12.5, fontWeight: 500,
+            }}>Skip — use this device only</button>
+          </div>
+        )}
       </div>
     </div>
   )

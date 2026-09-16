@@ -18,11 +18,13 @@ export interface MDManga {
   attributes: {
     title: Record<string, string>
     altTitles: Array<Record<string, string>>
+    description: Record<string, string>
     status: string
     year: number | null
     contentRating: string
+    tags: Array<{ id: string; attributes: { name: Record<string, string>; group: string } }>
   }
-  relationships: Array<{ id: string; type: string; attributes?: { fileName?: string } }>
+  relationships: Array<{ id: string; type: string; attributes?: { fileName?: string; name?: string } }>
 }
 
 /** Best available English title: en altTitle > en title > romanized > first available. */
@@ -170,6 +172,17 @@ export function useAdvancedSearch(filters: SearchFilters) {
         limit: 30,
         ...COVER_INCLUDE,
       }),
+  })
+}
+
+/** Single manga by ID (for detail screen). */
+export function useManga(id: string | undefined) {
+  return useQuery({
+    queryKey: ['md', 'manga', id],
+    enabled: !!id,
+    staleTime: 10 * 60 * 1000,
+    queryFn: () =>
+      mdGet<{ data: MDManga }>(`/manga/${id}`, { 'includes[]': ['cover_art', 'author'] }),
   })
 }
 
