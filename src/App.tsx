@@ -6,6 +6,9 @@ import LibraryScreen from './features/library/LibraryScreen'
 import LocalFilesScreen from './features/localfiles/LocalFilesScreen'
 import ProfileScreen from './features/sync/ProfileScreen'
 import ReaderShell from './features/reader/ReaderShell'
+import OfflineBanner from './features/reliability/OfflineBanner'
+import OnboardingScreen from './features/onboarding/OnboardingScreen'
+import { hasSeenOnboarding } from './features/onboarding/Onboarding'
 import type { SeriesType } from './lib/db/schema'
 
 type Tab = 'home' | 'search' | 'library' | 'local' | 'profile'
@@ -21,10 +24,15 @@ const TABS: { id: Tab; label: string; icon: string }[] = [
 export default function App() {
   const [tab, setTab] = useState<Tab>('home')
   const [reading, setReading] = useState<{ id: string; type: SeriesType } | null>(null)
+  const [onboarding, setOnboarding] = useState<boolean | null>(null)
 
   useEffect(() => {
     void loadTheme()
+    hasSeenOnboarding().then((seen) => setOnboarding(!seen))
   }, [])
+
+  if (onboarding === null) return null // brief flash-guard while checking the flag
+  if (onboarding) return <OnboardingScreen onDone={() => setOnboarding(false)} />
 
   // Series type is refined from MangaDex tags in Phase 5; default manga for reader mode now.
   const openSeries = (id: string) => setReading({ id, type: 'manga' })
@@ -43,6 +51,7 @@ export default function App() {
 
   return (
     <div className="flex h-screen flex-col">
+      <OfflineBanner />
       <main className="flex-1 overflow-y-auto">
         {tab === 'home' && <HomeScreen onOpen={openSeries} />}
         {tab === 'search' && <SearchScreen onOpen={openSeries} />}
