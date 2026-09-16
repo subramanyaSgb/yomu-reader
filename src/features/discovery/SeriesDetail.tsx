@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react'
 import {
-  ArrowLeft, Bell, Download, Star, BookOpen, ChevronDown, ExternalLink, ChevronUp
+  ArrowLeft, Download, Star, ChevronDown, ExternalLink, ChevronUp
 } from 'lucide-react'
+import { useShelves, shelfOf, type Shelf } from '../shelf/shelf'
 import {
   useManga, useChapterFeed, mangaEnTitle, mangaCoverUrl,
   type MDChapter,
@@ -42,7 +43,8 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
   const comic = useComickComic(isComick ? id : undefined)
   const [order, setOrder] = useState<'desc' | 'asc'>('desc')
   const [synopsisExpanded, setSynopsisExpanded] = useState(false)
-  const [following, setFollowing] = useState(false)
+  const { shelves, set: setShelfState } = useShelves()
+  const currentShelf = shelfOf(shelves, id)
   // Long series can have 3000+ chapters — rendering them all as DOM nodes janks the
   // page. Render in slices of 100 with a "Show more" button.
   const [chapterLimit, setChapterLimit] = useState(100)
@@ -128,9 +130,6 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
             <ArrowLeft size={20} />
           </button>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button style={{ width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--y-ov2)', borderRadius: 12, border: 'none', cursor: 'pointer', color: following ? 'var(--y-a)' : 'var(--y-mid)' }}>
-              <Bell size={18} />
-            </button>
             <button style={{ width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--y-ov2)', borderRadius: 12, border: 'none', cursor: 'pointer', color: 'var(--y-mid)' }}>
               <Download size={18} />
             </button>
@@ -172,18 +171,16 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
           </div>
         )}
 
-        {/* Action row */}
+        {/* Shelf chips — the series lives on exactly one of the three shelves */}
         <div style={{ display: 'flex', gap: 10, padding: '0 18px', marginBottom: 16 }}>
-          <button onClick={() => setFollowing(f => !f)} style={{
-            flex: 1.2, height: 44, borderRadius: 11, border: 'none', cursor: 'pointer',
-            background: following ? 'var(--y-pa)' : 'var(--y-surf)',
-            color: following ? 'var(--y-plt)' : 'var(--y-hi)',
-            fontSize: 13.5, fontWeight: 700,
-          }}>{following ? 'Following' : 'Follow'}</button>
-          <button style={{ flex: 1, height: 44, borderRadius: 11, border: 'none', cursor: 'pointer', background: 'var(--y-surf)', color: 'var(--y-hi)', fontSize: 13, fontWeight: 600 }}>Reading</button>
-          <button style={{ width: 44, height: 44, borderRadius: 11, border: 'none', cursor: 'pointer', background: 'var(--y-surf)', color: 'var(--y-mid)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <BookOpen size={18} />
-          </button>
+          {([['reading', 'Reading'], ['want', 'Want to Read'], ['completed', 'Completed']] as [Shelf, string][]).map(([s, label]) => (
+            <button key={s} onClick={() => setShelfState(id, s)} style={{
+              flex: 1, height: 44, borderRadius: 11, border: 'none', cursor: 'pointer',
+              background: currentShelf === s ? 'var(--y-pa)' : 'var(--y-surf)',
+              color: currentShelf === s ? 'var(--y-plt)' : 'var(--y-hi)',
+              fontSize: 12.5, fontWeight: 700,
+            }}>{label}</button>
+          ))}
         </div>
 
         {/* Synopsis */}

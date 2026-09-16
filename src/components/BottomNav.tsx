@@ -1,22 +1,18 @@
-import { Home, Search, BookOpen, HardDrive, User } from 'lucide-react'
+import { BookOpen, Bookmark, CheckCircle2 } from 'lucide-react'
 import type { Tab } from '../App'
 
 const TABS: { id: Tab; label: string; Icon: React.FC<{ size?: number }> }[] = [
-  { id: 'home',    label: 'Home',    Icon: Home },
-  { id: 'search',  label: 'Search',  Icon: Search },
-  { id: 'library', label: 'Library', Icon: BookOpen },
-  { id: 'storage', label: 'Storage', Icon: HardDrive },
-  { id: 'profile', label: 'Profile', Icon: User },
+  { id: 'reading',   label: 'Reading',      Icon: BookOpen },
+  { id: 'want',      label: 'Want to Read', Icon: Bookmark },
+  { id: 'completed', label: 'Completed',    Icon: CheckCircle2 },
 ]
 
 export default function BottomNav({
   active,
   onTab,
-  unreadCount = 0,
 }: {
   active: Tab
   onTab: (t: Tab) => void
-  unreadCount?: number
 }) {
   return (
     <nav
@@ -44,19 +40,7 @@ export default function BottomNav({
               color, position: 'relative',
             }}
           >
-            <div style={{ position: 'relative' }}>
-              <Icon size={22} />
-              {id === 'library' && unreadCount > 0 && (
-                <span style={{
-                  position: 'absolute', top: -4, right: -6,
-                  background: 'var(--y-a)', color: 'var(--y-onp)',
-                  fontSize: 9, fontWeight: 800,
-                  borderRadius: 6, minWidth: 16, height: 16,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  padding: '0 3px',
-                }}>{unreadCount}</span>
-              )}
-            </div>
+            <Icon size={22} />
             <span style={{ fontSize: 10, fontWeight: 700 }}>{label}</span>
           </button>
         )

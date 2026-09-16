@@ -1,35 +1,31 @@
-import { lazy, Suspense, useEffect, useRef, useState } from 'react'
+// App shell: three shelves (Reading / Want to Read / Completed) over the curated
+// catalog, plus the series-detail and reader overlays. Nothing else — this is a
+// personal tracker+reader. New series are appended to src/catalog.ts on request
+// and land on the Want to Read shelf.
+
+import { useEffect, useRef, useState } from 'react'
 import { loadStoredTheme } from './styles/theme'
 import { ToastProvider } from './components/Toast'
 import BottomNav from './components/BottomNav'
 import OfflineBanner from './features/reliability/OfflineBanner'
 import OnboardingScreen from './features/onboarding/OnboardingScreen'
 import { hasSeenOnboarding } from './features/onboarding/Onboarding'
-import HomeScreen from './features/discovery/HomeScreen'
-import SearchScreen from './features/discovery/SearchScreen'
+import ShelfScreen from './features/shelf/ShelfScreen'
 import SeriesDetail from './features/discovery/SeriesDetail'
-import LibraryScreen from './features/library/LibraryScreen'
-import StorageScreen from './features/storage/StorageScreen'
-// Lazy: ProfileScreen is the only route that needs the ~540KB firebase chunk.
-const ProfileScreen = lazy(() => import('./features/sync/ProfileScreen'))
-import LocalFilesScreen from './features/localfiles/LocalFilesScreen'
-import UnreadScreen from './features/discovery/UnreadScreen'
 import ReaderShell from './features/reader/ReaderShell'
+import { markReadingIfWanted, type Shelf } from './features/shelf/shelf'
 import type { SeriesType } from './lib/db/schema'
 
-export type Tab = 'home' | 'search' | 'library' | 'storage' | 'profile'
+export type Tab = Shelf
 export type SeriesSource = 'mangadex' | 'kakalot' | 'comick'
 
-// Non-tab overlaid screens
 type OverlayScreen =
   | { kind: 'detail'; id: string; source: SeriesSource }
   | { kind: 'reader'; id: string; source: SeriesSource; type: SeriesType; startChapterId?: string }
-  | { kind: 'unread' }
-  | { kind: 'local' }
 
 export default function App() {
-  const [tab, setTab] = useState<Tab>('home')
-  const prevTabRef = useRef<Tab>('home')
+  const [tab, setTab] = useState<Tab>('reading')
+  const prevTabRef = useRef<Tab>('reading')
   const [overlay, setOverlay] = useState<OverlayScreen | null>(null)
   const [onboarding, setOnboarding] = useState<boolean | null>(null)
 
@@ -38,25 +34,22 @@ export default function App() {
     hasSeenOnboarding().then(seen => setOnboarding(!seen))
   }, [])
 
-  // Back-nav guard: never navigate to the screen already showing
   function goBack() {
-    if (!overlay) {
-      // already at top — shouldn't happen
-      return
-    }
+    if (!overlay) return
     setOverlay(null)
   }
 
-  function openSeries(id: string, source: SeriesSource = 'mangadex') {
+  function openSeries(id: string, source: SeriesSource = 'kakalot') {
     setOverlay({ kind: 'detail', id, source })
   }
 
   function openReader(id: string, source: SeriesSource, type: SeriesType = 'manga', startChapterId?: string) {
+    void markReadingIfWanted(id) // Want to Read → Reading on first open
     setOverlay({ kind: 'reader', id, source, type, startChapterId })
   }
 
   function switchTab(t: Tab) {
-    if (t === tab && !overlay) return // guard: already showing
+    if (t === tab && !overlay) return
     prevTabRef.current = tab
     setOverlay(null)
     setTab(t)
@@ -97,24 +90,9 @@ export default function App() {
                 openReader(readId ?? overlay.id, readSource ?? overlay.source, 'manga', startChapterId)}
             />
           )}
-          {overlay?.kind === 'local' && (
-            <LocalFilesScreen onBack={goBack} />
-          )}
-          {overlay?.kind === 'unread' && (
-            <UnreadScreen onBack={goBack} onOpen={openSeries} />
-          )}
-          {!overlay && tab === 'home'    && <HomeScreen onOpen={openSeries} onUnread={() => setOverlay({ kind: 'unread' })} />}
-          {!overlay && tab === 'search'  && <SearchScreen onOpen={openSeries} />}
-          {!overlay && tab === 'library' && <LibraryScreen onOpen={openSeries} />}
-          {!overlay && tab === 'storage' && <StorageScreen />}
-          {!overlay && tab === 'profile' && (
-            <Suspense fallback={<div style={{ padding: 18 }}><div style={{ height: 120, borderRadius: 16, background: 'var(--y-surf)' }} /></div>}>
-              <ProfileScreen onLocalFiles={() => setOverlay({ kind: 'local' })} />
-            </Suspense>
-          )}
+          {!overlay && <ShelfScreen shelf={tab} onOpen={openSeries} />}
         </main>
 
-        {/* BottomNav: hidden inside readers and full-overlay screens */}
         {!overlay && (
           <BottomNav active={tab} onTab={switchTab} />
         )}
