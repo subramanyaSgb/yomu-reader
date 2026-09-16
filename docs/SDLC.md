@@ -72,7 +72,7 @@ Scope: FR-5, FR-21, FR-22, FR-23, FR-24.
 
 ---
 
-## Phase 4 — Auth, sync, notifications
+## Phase 4 — Auth, sync, notifications ✅ COMPLETE (2026-09-16)
 
 **Goal:** cross-device continuity + new-chapter alerts.
 Scope: FR-19, FR-20, FR-29, FR-30.

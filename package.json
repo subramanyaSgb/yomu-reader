@@ -12,6 +12,7 @@
   "dependencies": {
     "@tanstack/react-query": "^5.102.8",
     "dexie": "^4.4.6",
+    "firebase": "^12.19.0",
     "jszip": "^3.10.2",
     "pdfjs-dist": "^6.3.289",
     "react": "^19.2.8",
