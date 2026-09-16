@@ -304,14 +304,32 @@ export default {
         return new Response('Forbidden host', { status: 403, headers: corsHeaders(origin) })
       }
 
-      const upstream = await fetch(parsed.toString(), {
-        headers: {
-          'Accept': 'image/webp,image/jpeg,image/*,*/*',
-          'Referer': 'https://mangadex.org/',
-          'User-Agent': BROWSER_UA,
-        },
+      // uploads.mangadex.org WAF-blocks browser-UA-from-datacenter fetches (400) but
+      // serves fine to an honest client with no Referer. @Home URLs are token-keyed
+      // and need no Referer either.
+      const headersFor = (host: string): HeadersInit =>
+        host === ALLOWED_UPLOADS
+          ? { Accept: 'image/*,*/*', 'User-Agent': 'YomuReader/1.0 (personal manga PWA)' }
+          : {
+              Accept: 'image/webp,image/jpeg,image/*,*/*',
+              Referer: 'https://mangadex.org/',
+              'User-Agent': BROWSER_UA,
+            }
+      let upstream = await fetch(parsed.toString(), {
+        headers: headersFor(parsed.host),
         cf: { cacheEverything: true, cacheTtl: 86_400 },
       })
+      if (!upstream.ok) {
+        // MD rate-limits bursts (400) and cacheEverything then pins that error at the
+        // edge. Retry with a throwaway query param — different cache key → fresh
+        // upstream fetch — and don't cache the retry.
+        const bust = new URL(parsed.toString())
+        bust.searchParams.set('yomu-retry', crypto.randomUUID())
+        upstream = await fetch(bust.toString(), {
+          headers: headersFor(parsed.host),
+          cf: { cacheTtl: 0 },
+        })
+      }
       if (!upstream.ok) {
         return new Response(`Upstream error ${upstream.status}`, { status: upstream.status, headers: corsHeaders(origin) })
       }
