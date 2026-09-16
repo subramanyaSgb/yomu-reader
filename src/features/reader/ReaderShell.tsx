@@ -10,7 +10,7 @@ import { mdGet } from '../../lib/mangadex/client'
 import { useKakalotChapters, useKakalotSearch } from '../../lib/kakalot/queries'
 import { makeProgressSaver, restoreProgress } from './resume'
 import { markChapterRead } from './readTracking'
-import { saveSeriesMeta } from '../shelf/seriesMeta'
+import { saveSeriesMeta, getSeriesMeta } from '../shelf/seriesMeta'
 import type { ScrollAnchor } from './scrollAnchor'
 import { trackChapterRead } from '../stats/statsRepo'
 import { useWakeLock } from '../settings/useWakeLock'
@@ -183,7 +183,7 @@ export default function ReaderShell({ seriesId, seriesSource, seriesType, startC
       }
     }
     let alive = true
-    restoreProgress(seriesId).then((p) => {
+    restoreProgress(seriesId).then(async (p) => {
       if (!alive || !p) { setRestored(true); return }
       const idx = chapterRefs.findIndex((c) => c.id === p.lastChapterId)
       if (idx >= 0) {
@@ -194,8 +194,16 @@ export default function ReaderShell({ seriesId, seriesSource, seriesType, startC
         } else if (p.position?.kind === 'paged') {
           setInitialPage(p.position.pageIndex)
         }
+      } else {
+        // Chapter id not in this list (series migrated to a new source, or version
+        // pool changed) — fall back to the last-read chapter NUMBER.
+        const meta = await getSeriesMeta(seriesId)
+        if (alive && meta?.lastNumber) {
+          const byNum = chapterRefs.findIndex((c) => c.number === meta.lastNumber)
+          if (byNum >= 0) setChapterIndex(byNum)
+        }
       }
-      setRestored(true)
+      if (alive) setRestored(true)
     })
     return () => { alive = false }
   }, [restored, chapterRefs, seriesId, startChapterId])

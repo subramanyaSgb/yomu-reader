@@ -15,6 +15,7 @@ import UpcomingScreen from './features/shelf/UpcomingScreen'
 import SeriesDetail from './features/discovery/SeriesDetail'
 import ReaderShell from './features/reader/ReaderShell'
 import { markReadingIfWanted, type Shelf } from './features/shelf/shelf'
+import { migrateChangedIds } from './features/shelf/idMigration'
 import type { SeriesType } from './lib/db/schema'
 
 export type Tab = Shelf
@@ -38,7 +39,16 @@ export default function App() {
 
   useEffect(() => {
     loadStoredTheme()
-    hasSeenOnboarding().then(seen => setOnboarding(!seen))
+    // Run source-id migration BEFORE any screen reads shelf/progress state.
+    migrateChangedIds()
+      .catch(() => { /* best effort */ })
+      .then(() => hasSeenOnboarding())
+      .then(seen => setOnboarding(!seen))
+    // Refresh persistence: nav state lives in history.state, so a reload restores
+    // the exact screen (detail/reader) instead of dumping back to the shelf.
+    const hs = history.state as { stack?: OverlayScreen[]; tab?: Tab } | null
+    if (hs?.tab) setTab(hs.tab)
+    if (hs?.stack?.length) setStack(hs.stack)
   }, [])
 
   // Bumped when a reader closes so the detail page below remounts with fresh
@@ -46,19 +56,22 @@ export default function App() {
   const [detailRefresh, setDetailRefresh] = useState(0)
 
   useEffect(() => {
-    const onPop = () => {
+    const onPop = (e: PopStateEvent) => {
       if (stackRef.current[stackRef.current.length - 1]?.kind === 'reader') {
         setDetailRefresh(n => n + 1)
       }
-      setStack(s => s.slice(0, -1))
+      const hs = e.state as { stack?: OverlayScreen[]; tab?: Tab } | null
+      setStack(hs?.stack ?? [])
+      if (hs?.tab) setTab(hs.tab)
     }
     window.addEventListener('popstate', onPop)
     return () => window.removeEventListener('popstate', onPop)
   }, [])
 
   function pushOverlay(o: OverlayScreen) {
-    history.pushState({ yomu: stackRef.current.length + 1 }, '')
-    setStack(s => [...s, o])
+    const next = [...stackRef.current, o]
+    history.pushState({ stack: next, tab }, '')
+    setStack(next)
   }
 
   function goBack() {
@@ -84,6 +97,7 @@ export default function App() {
     }
     setStack([])
     setTab(t)
+    history.replaceState({ stack: [], tab: t }, '')
   }
 
   if (onboarding === null) return null

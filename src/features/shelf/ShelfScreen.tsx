@@ -11,10 +11,16 @@ import { getReadList } from '../reader/readTracking'
 import { getSeriesMeta } from './seriesMeta'
 import { getProgress } from '../../lib/db/repo'
 import { exportBackup, importBackup } from '../backup/backup'
+import { downloadsSummary, clearAllDownloads, formatBytes } from '../offline/manage'
+import { downloadChapter, isDownloaded } from '../offline/downloads'
+import { kkPages as fetchKkPages, buildKakalotImageUrl } from '../../lib/kakalot/client'
 import { useShelves, shelfOf, type Shelf } from './shelf'
 import type { SeriesSource } from '../../App'
 
 interface CardInfo { pct?: number; lastNumber?: string | null; at?: number }
+
+// Session guard so auto-download runs once per series per app session.
+const autoDownloaded = new Set<string>()
 
 const SHELF_TITLE: Record<Shelf, string> = {
   reading: 'Reading',
@@ -110,6 +116,38 @@ export default function ShelfScreen({
     })
   }
   const anyNew = Object.values(hasNewMap).some(Boolean)
+
+  // Auto-download new chapters (max 3/series per session, skips data-saver mode) so
+  // fresh releases are readable offline without pressing anything.
+  useEffect(() => {
+    if (shelf !== 'reading' || !navigator.onLine) return
+    if ((navigator as { connection?: { saveData?: boolean } }).connection?.saveData) return
+    void (async () => {
+      for (let i = 0; i < readingIds.length; i++) {
+        const id = readingIds[i]
+        if (!hasNewMap[id] || autoDownloaded.has(id)) continue
+        autoDownloaded.add(id)
+        const chs = newChecks[i]?.data?.chapters ?? []
+        const last = info[id]?.lastNumber
+        if (!last) continue
+        const fresh = chs.filter(c => c.number != null && parseFloat(c.number) > parseFloat(last)).slice(0, 3)
+        for (const ch of fresh) {
+          try {
+            if (await isDownloaded(ch.id)) continue
+            const pages = await fetchKkPages(ch.id)
+            await downloadChapter({ chapterId: ch.id, seriesId: id, proxyUrls: pages.map(p => buildKakalotImageUrl(p.src, ch.id)) }, 'auto')
+          } catch { /* silent — it's a convenience prefetch */ }
+        }
+      }
+    })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [anyNew, shelf])
+
+  // Storage summary for the backup sheet
+  const [storage, setStorage] = useState<{ chapters: number; bytes: number } | null>(null)
+  useEffect(() => {
+    if (backupSheet) downloadsSummary().then(setStorage)
+  }, [backupSheet])
 
   // Local-only card info: read %, last chapter, recency (no network).
   useEffect(() => {
@@ -231,6 +269,18 @@ export default function ShelfScreen({
                 }
               }} />
             {backupMsg && <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--y-ok)', marginBottom: 10 }}>{backupMsg}</div>}
+            {/* Storage */}
+            <div style={{ borderTop: '1px solid var(--y-line)', paddingTop: 14, marginTop: 4, marginBottom: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--y-hi)' }}>
+                Offline storage{storage ? ` — ${storage.chapters} chapters · ${formatBytes(storage.bytes)}` : '…'}
+              </span>
+              {storage != null && storage.chapters > 0 && (
+                <button onClick={async () => { await clearAllDownloads(); setStorage({ chapters: 0, bytes: 0 }) }}
+                  style={{ height: 34, padding: '0 12px', borderRadius: 9, border: '1px solid var(--y-line)', background: 'none', color: 'var(--y-warn)', fontSize: 11.5, fontWeight: 700, cursor: 'pointer' }}>
+                  Clear all
+                </button>
+              )}
+            </div>
             <button onClick={() => setBackupSheet(false)}
               style={{ width: '100%', height: 44, borderRadius: 12, border: 'none', background: 'none', color: 'var(--y-dim)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
               Close

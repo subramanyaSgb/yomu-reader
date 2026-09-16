@@ -8,6 +8,11 @@ import { restoreProgress } from '../reader/resume'
 import { saveSeriesMeta } from '../shelf/seriesMeta'
 import { kkPages, buildKakalotImageUrl } from '../../lib/kakalot/client'
 import { downloadChapter, isDownloaded } from '../offline/downloads'
+import { downloadedChapterIds, clearSeriesDownloads } from '../offline/manage'
+import { migratedFlagKey } from '../shelf/idMigration'
+import { getSetting } from '../../lib/db/repo'
+import { db } from '../../lib/db/schema'
+import { getSeriesMeta } from '../shelf/seriesMeta'
 import {
   useManga, useChapterFeed, mangaEnTitle, mangaCoverUrl,
   type MDChapter,
@@ -143,6 +148,42 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
       void saveSeriesMeta(readSeriesId, { total: kkFeed.data.chapters.length })
     }
   }, [readSeriesId, kkFeed.data])
+
+  // Migrated series (source changed): old read-marks reference dead chapter ids —
+  // regenerate them once from the last-read chapter number.
+  useEffect(() => {
+    if (!readSeriesId || !kkFeed.data?.chapters.length) return
+    void (async () => {
+      const flag = await getSetting(migratedFlagKey(readSeriesId))
+      if (!flag) return
+      const meta = await getSeriesMeta(readSeriesId)
+      const asc = kkFeed.data!.chapters
+      if (meta?.lastNumber) {
+        const upTo = asc.findIndex(c => c.number != null && parseFloat(c.number) >= parseFloat(meta.lastNumber!))
+        if (upTo >= 0) await markMany(asc.slice(0, upTo + 1).map(c => c.id))
+      }
+      await db.settings.delete(migratedFlagKey(readSeriesId))
+    })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [readSeriesId, kkFeed.data])
+
+  // Downloaded chapters (for the row markers + series-clear button).
+  const [dlSet, setDlSet] = useState<Set<string>>(new Set())
+  useEffect(() => {
+    if (!readSeriesId) return
+    let alive = true
+    downloadedChapterIds(readSeriesId).then(s => { if (alive) setDlSet(s) })
+    return () => { alive = false }
+  }, [readSeriesId, dl])
+
+  // Jump-to-chapter input
+  const [jump, setJump] = useState('')
+  function jumpToChapter() {
+    const n = jump.trim()
+    if (!n) return
+    const ch = kkChapters.find(c => c.number === n) ?? kkChapters.find(c => c.number != null && parseFloat(c.number) === parseFloat(n))
+    if (ch) onRead(kkMangaId ?? undefined, 'kakalot', ch.id)
+  }
 
   const displayChapterCount = isComick ? ckChapters.length : (showKkChapters ? kkChapters.length : mdChapters.length)
 
@@ -282,6 +323,23 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
           </button>
         </div>
 
+        {/* Jump to chapter */}
+        {showKkChapters && kkChapters.length > 30 && (
+          <div style={{ display: 'flex', gap: 8, padding: '8px 18px 4px' }}>
+            <input
+              value={jump}
+              onChange={e => setJump(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') jumpToChapter() }}
+              inputMode="decimal"
+              placeholder="Go to chapter #"
+              style={{ flex: 1, height: 38, background: 'var(--y-surf)', border: '1px solid var(--y-line)', borderRadius: 10, padding: '0 12px', fontSize: 12.5, fontWeight: 600, color: 'var(--y-hi)', outline: 'none' }}
+            />
+            <button onClick={jumpToChapter} style={{ height: 38, padding: '0 16px', borderRadius: 10, border: 'none', background: 'var(--y-p)', color: 'var(--y-onp)', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>
+              Read
+            </button>
+          </div>
+        )}
+
         {/* Loading state */}
         {((feed.isLoading && !isComick && !isKakalot) || (isComick && (comic.isLoading || ckFeed.isLoading)) || ((isLicensed || isKakalot) && (kkSearch.isLoading || kkFeed.isLoading))) && (
           <div style={{ padding: '12px 18px' }}>
@@ -345,6 +403,7 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
                   <div style={{ fontSize: 13.5, fontWeight: 700, color: isCurrent ? 'var(--y-plt)' : 'var(--y-hi)', marginBottom: 3 }}>
                     Chapter {displayNum}
                     {isCurrent && <span style={{ fontSize: 9, fontWeight: 800, marginLeft: 8, background: 'var(--y-pa)', color: 'var(--y-plt)', borderRadius: 6, padding: '2px 6px', textTransform: 'uppercase' }}>Continue</span>}
+                    {dlSet.has(ch.id) && <span style={{ fontSize: 9, fontWeight: 800, marginLeft: 8, background: 'rgba(23,181,126,0.15)', color: 'var(--y-ok)', borderRadius: 6, padding: '2px 6px', textTransform: 'uppercase' }}>Offline</span>}
                   </div>
                   <div style={{ fontSize: 11, fontWeight: 500, color: 'var(--y-dim)' }}>{ch.title ?? 'WeebCentral'}</div>
                 </div>
@@ -437,6 +496,12 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
                     <div style={{ height: '100%', width: `${dl.total ? Math.round((dl.done / dl.total) * 100) : 100}%`, background: 'var(--y-p)', transition: 'width 0.3s' }} />
                   </div>
                 </div>
+              )}
+              {dl == null && dlSet.size > 0 && (
+                <button onClick={async () => { if (readSeriesId) { await clearSeriesDownloads(readSeriesId); setDlSet(new Set()); } }}
+                  style={{ width: '100%', height: 44, borderRadius: 12, border: '1px solid var(--y-line)', background: 'none', color: 'var(--y-warn)', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', marginBottom: 10 }}>
+                  Remove this series’ downloads ({dlSet.size} chapters)
+                </button>
               )}
               <button onClick={() => { if (!dl?.running) { setDlSheet(false); setDl(null) } }}
                 style={{ width: '100%', height: 44, borderRadius: 12, border: 'none', background: 'none', color: dl?.running ? 'var(--y-line)' : 'var(--y-dim)', fontSize: 13, fontWeight: 700, cursor: dl?.running ? 'default' : 'pointer' }}>

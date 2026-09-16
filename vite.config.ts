@@ -21,7 +21,7 @@ export default defineConfig({
     react(),
     tailwindcss(),
     VitePWA({
-      registerType: 'autoUpdate',
+      registerType: 'prompt',
       workbox: {
         // Don't precache the big lazy chunks (pdf.worker ~2.2MB, firebase ~540KB) —
         // they'd download on every install/SW update even if never used. Runtime

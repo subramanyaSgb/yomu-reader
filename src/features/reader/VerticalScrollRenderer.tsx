@@ -155,9 +155,10 @@ export default function VerticalScrollRenderer({
     if (!el) return
     const { scrollTop, scrollHeight, clientHeight } = el
 
-    // Seamless transition: within one viewport of the bottom, mount the next chapter.
+    // Seamless transition: mount the next chapter ~3 viewports early so its pages
+    // (and page-list fetch) are already loading before the reader reaches them.
     if (
-      scrollHeight - (scrollTop + clientHeight) < clientHeight &&
+      scrollHeight - (scrollTop + clientHeight) < clientHeight * 3 &&
       baseIndex + loadedCount < chapters.length
     ) {
       setLoadedCount((n) => n + 1)
