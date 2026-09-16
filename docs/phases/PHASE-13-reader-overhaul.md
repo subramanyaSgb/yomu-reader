@@ -45,3 +45,15 @@ suites); deployed via push.
 
 **Gaps:** device pass still owner-side (touch gestures can't be verified headlessly);
 auto-scroll state is per-session (speed persists, on/off doesn't) by design.
+
+## Addendum — read tracking + sort + Continue (commit 9048bc9)
+
+Owner follow-up: chapter resume visibility, broken sort toggle, no read/unread markers.
+- `readTracking.ts`: per-series read-id list; a chapter is marked read the moment it's
+  opened in the reader; rows expose a manual check toggle.
+- SeriesDetail: rows dim when read, green check, CONTINUE badge on the last-read
+  chapter, unread count in header; **Newest/Oldest toggle now actually sorts the
+  WeebCentral list** (it previously only touched the unused MD list); the Continue CTA
+  reads real saved progress instead of the first list entry.
+- App: closing the reader bumps a refresh key so the detail page remounts with fresh
+  progress + markers.
