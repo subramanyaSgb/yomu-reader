@@ -43,3 +43,14 @@ Worker deployed with schedule + `/push/vapid` returns the key; app build clean;
 **Gaps:** push requires at least one shelf visit per device so lastNumbers are
 current (30-min throttle); cron granularity 2h; bookmark positions survive source
 migration only at chapter-number precision.
+
+## Addendum — professional icon pass (commit 609e0b6)
+
+Owner flagged the glyph buttons (⬇ ✓ 🔖 ⚙ ‹ › ▾ ▶⏸) as unprofessional. Replaced across
+every component with Lucide icons in consistent containers: chapter-row actions are
+34px circles (`RowIconBtn`: outline idle → green fill active → spinner busy), reader
+HUD uses uniform 42px circles/21px pills (ArrowLeft, Bookmark→Check flash,
+ChevronDown picker, Settings, ChevronLeft/Right, Play/Pause), paged arrows are blurred
+circles, bookmark rows use Bookmark/X. Redundant OFFLINE chip dropped (the row icon
+conveys the state). Global CSS: tap-highlight removed + subtle press-dim on all
+buttons; aria-labels on every icon-only control.
