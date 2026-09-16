@@ -14,6 +14,27 @@ export default function ReaderControls({ mem, update, onClose }: Props) {
       <div style={{ width: '100%', borderRadius: '20px 20px 0 0', background: 'var(--y-surf)', border: '1px solid var(--y-line)', padding: '20px 18px 32px' }} onClick={e => e.stopPropagation()}>
         <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--y-hi)', marginBottom: 20 }}>Reader settings</div>
 
+        <Row label="Mode">
+          <div style={{ display: 'flex', gap: 6 }}>
+            {([['scroll', 'Vertical'], ['paged', 'Paged']] as const).map(([m, label]) => (
+              <button key={m} onClick={() => update({ mode: m })} style={{ height: 36, padding: '0 14px', borderRadius: 10, border: '1px solid var(--y-line)', background: mem.mode === m ? 'var(--y-p)' : 'var(--y-surf2)', color: mem.mode === m ? 'var(--y-onp)' : 'var(--y-mid)', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>{label}</button>
+            ))}
+          </div>
+        </Row>
+
+        <Row label="Quality">
+          <div style={{ display: 'flex', gap: 6 }}>
+            {([['source', 'Source'], ['low', 'Data saver']] as const).map(([q, label]) => (
+              <button key={q} onClick={() => update({ quality: q })} style={{ height: 36, padding: '0 14px', borderRadius: 10, border: '1px solid var(--y-line)', background: (mem.quality ?? 'source') === q ? 'var(--y-p)' : 'var(--y-surf2)', color: (mem.quality ?? 'source') === q ? 'var(--y-onp)' : 'var(--y-mid)', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>{label}</button>
+            ))}
+          </div>
+        </Row>
+
+        <Row label="Auto-scroll speed">
+          <input type="range" min={1} max={8} step={1} value={mem.autoSpeed ?? 2} onChange={e => update({ autoSpeed: Number(e.target.value) })}
+            style={{ width: 140, accentColor: 'var(--y-p)' }} />
+        </Row>
+
         <Row label="Direction">
           <div style={{ display: 'flex', gap: 6 }}>
             {(['RTL', 'LTR'] as const).map(d => {

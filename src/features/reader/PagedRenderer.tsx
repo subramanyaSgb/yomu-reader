@@ -10,6 +10,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useChapterPages } from './useChapterPages'
 import { nextIndex, chapterCrossing, type Action, type Direction } from './pagedNav'
 import { chooseTurnMode, type TurnMode } from './curl/capability'
+import type { ImageQuality } from '../../lib/proxy/imageUrl'
 import type { ChapterRef } from './VerticalScrollRenderer'
 
 interface Props {
@@ -19,6 +20,9 @@ interface Props {
   rtl?: boolean
   turnOverride?: TurnMode
   gapColor?: string
+  quality?: ImageQuality
+  initialPage?: number
+  onPageChange?: (page: number) => void
 }
 
 export default function PagedRenderer({
@@ -28,18 +32,27 @@ export default function PagedRenderer({
   rtl = true,
   turnOverride,
   gapColor = '#000',
+  quality = 'source',
+  initialPage = 0,
+  onPageChange,
 }: Props) {
   const dir: Direction = rtl ? 'rtl' : 'ltr'
   const chapter = chapters[chapterIndex]
-  const { pages, isLoading, isError } = useChapterPages(chapter?.id, 'source', chapter?.source ?? 'mangadex')
-  const [page, setPage] = useState(0)
+  const { pages, isLoading, isError } = useChapterPages(chapter?.id, quality, chapter?.source ?? 'mangadex')
+  const [page, setPage] = useState(initialPage)
   const [turning, setTurning] = useState<'left' | 'right' | null>(null)
   const [hudVisible, setHudVisible] = useState(true)
   const turnMode = useRef<TurnMode>(chooseTurnMode(turnOverride))
   const hudTimer = useRef<number | undefined>(undefined)
 
-  // Reset to first page on chapter change.
-  useEffect(() => setPage(0), [chapterIndex])
+  // Reset to first page on chapter change — but not on mount (exact-position resume).
+  const firstRun = useRef(true)
+  useEffect(() => {
+    if (firstRun.current) { firstRun.current = false; return }
+    setPage(0)
+    onPageChange?.(0)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chapterIndex])
 
   // Auto-hide HUD.
   useEffect(() => {
@@ -66,6 +79,7 @@ export default function PagedRenderer({
     setTurning(action)
     window.setTimeout(() => {
       setPage(next)
+      onPageChange?.(next)
       setTurning(null)
     }, turnMode.current === 'curl' ? 260 : 160)
   }

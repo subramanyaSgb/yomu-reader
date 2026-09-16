@@ -15,15 +15,18 @@ interface Props {
   src: string
   alt?: string
   onZoomChange?: (zoomed: boolean) => void
+  onTap?: () => void
 }
 
-export default function ZoomableImage({ src, alt = '', onZoomChange }: Props) {
+export default function ZoomableImage({ src, alt = '', onZoomChange, onTap }: Props) {
   const ref = useRef<HTMLDivElement>(null)
   const [t, setT] = useState<Transform>(identity())
   const lastTap = useRef(0)
   const pan = useRef<{ x: number; y: number; tx: number; ty: number } | null>(null)
   const pinch = useRef<{ dist: number; scale: number } | null>(null)
   const pointers = useRef(new Map<number, { x: number; y: number }>())
+  const downPos = useRef<{ x: number; y: number } | null>(null)
+  const tapTimer = useRef<number | undefined>(undefined)
 
   function size() {
     const r = ref.current?.getBoundingClientRect()
@@ -43,6 +46,7 @@ export default function ZoomableImage({ src, alt = '', onZoomChange }: Props) {
   function onPointerDown(e: ReactPointerEvent) {
     ref.current?.setPointerCapture(e.pointerId)
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+    downPos.current = { x: e.clientX, y: e.clientY }
 
     if (pointers.current.size === 2) {
       const [a, b] = [...pointers.current.values()]
@@ -54,6 +58,7 @@ export default function ZoomableImage({ src, alt = '', onZoomChange }: Props) {
     // Double-tap detection.
     const nowMs = e.timeStamp
     if (nowMs - lastTap.current < 300) {
+      window.clearTimeout(tapTimer.current) // cancel pending single-tap
       const { px, py } = localPoint(e)
       apply(zoomToPoint(t, cycleScale(t.scale), px, py))
       lastTap.current = 0
@@ -88,6 +93,15 @@ export default function ZoomableImage({ src, alt = '', onZoomChange }: Props) {
   }
 
   function onPointerUp(e: ReactPointerEvent) {
+    // Single-tap (small movement, no zoom/pinch): toggle HUD after the double-tap window.
+    if (
+      onTap && downPos.current && pointers.current.size === 1 && !pinch.current &&
+      t.scale === 1 &&
+      Math.hypot(e.clientX - downPos.current.x, e.clientY - downPos.current.y) < 10
+    ) {
+      window.clearTimeout(tapTimer.current)
+      tapTimer.current = window.setTimeout(() => onTap(), 300)
+    }
     pointers.current.delete(e.pointerId)
     if (pointers.current.size < 2) pinch.current = null
     if (pointers.current.size === 0) pan.current = null
@@ -96,7 +110,11 @@ export default function ZoomableImage({ src, alt = '', onZoomChange }: Props) {
   return (
     <div
       ref={ref}
-      className="relative w-full touch-none overflow-hidden"
+      className="relative w-full overflow-hidden"
+      // CRITICAL: touch-action must allow vertical panning at 1x or the long-strip
+      // cannot be scrolled by touch at all (every image swallowed the gesture).
+      // Only lock gestures while actually zoomed (panning the image ourselves).
+      style={{ touchAction: t.scale > 1 ? 'none' : 'pan-y' }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}

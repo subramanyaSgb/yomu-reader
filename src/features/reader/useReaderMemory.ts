@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import { getSetting, setSetting, readerMemoryKey } from '../../lib/db/repo'
 import type { ReadMode } from '../../lib/db/schema'
 import type { TurnMode } from './curl/capability'
+import type { ImageQuality } from '../../lib/proxy/imageUrl'
 
 export type FitMode = 'width' | 'height' | 'original'
 
@@ -15,6 +16,8 @@ export interface ReaderMemory {
   gapColor: string
   turn?: TurnMode
   brightness: number // 0..1 dim overlay (0 = none)
+  quality?: ImageQuality // 'source' | 'low' (data saver, MangaDex only)
+  autoSpeed?: number // auto-scroll px/tick (vertical mode)
 }
 
 export const DEFAULT_MEMORY: ReaderMemory = {

@@ -26,7 +26,12 @@ type OverlayScreen =
 export default function App() {
   const [tab, setTab] = useState<Tab>('reading')
   const prevTabRef = useRef<Tab>('reading')
-  const [overlay, setOverlay] = useState<OverlayScreen | null>(null)
+  // Overlay STACK backed by browser history: hardware/browser Back pops one overlay
+  // (reader → detail → shelf) instead of exiting the PWA (the "back closes the app" bug).
+  const [stack, setStack] = useState<OverlayScreen[]>([])
+  const stackRef = useRef<OverlayScreen[]>([])
+  stackRef.current = stack
+  const overlay = stack.length > 0 ? stack[stack.length - 1] : null
   const [onboarding, setOnboarding] = useState<boolean | null>(null)
 
   useEffect(() => {
@@ -34,24 +39,39 @@ export default function App() {
     hasSeenOnboarding().then(seen => setOnboarding(!seen))
   }, [])
 
+  useEffect(() => {
+    const onPop = () => setStack(s => s.slice(0, -1))
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [])
+
+  function pushOverlay(o: OverlayScreen) {
+    history.pushState({ yomu: stackRef.current.length + 1 }, '')
+    setStack(s => [...s, o])
+  }
+
   function goBack() {
-    if (!overlay) return
-    setOverlay(null)
+    if (stackRef.current.length === 0) return
+    history.back() // popstate handler pops the stack
   }
 
   function openSeries(id: string, source: SeriesSource = 'kakalot') {
-    setOverlay({ kind: 'detail', id, source })
+    pushOverlay({ kind: 'detail', id, source })
   }
 
   function openReader(id: string, source: SeriesSource, type: SeriesType = 'manga', startChapterId?: string) {
     void markReadingIfWanted(id) // Want to Read → Reading on first open
-    setOverlay({ kind: 'reader', id, source, type, startChapterId })
+    pushOverlay({ kind: 'reader', id, source, type, startChapterId })
   }
 
   function switchTab(t: Tab) {
     if (t === tab && !overlay) return
     prevTabRef.current = tab
-    setOverlay(null)
+    if (stackRef.current.length > 0) {
+      // Drop the overlay history entries so Back on the shelf doesn't replay them.
+      history.go(-stackRef.current.length)
+    }
+    setStack([])
     setTab(t)
   }
 
