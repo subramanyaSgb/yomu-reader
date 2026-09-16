@@ -3,11 +3,11 @@
 // per IP with HTTP 429 and ran anti-abuse enforcement in 2026. Cache hard, throttle,
 // back off. Browse UNAUTHENTICATED (authed requests can't be cached).
 
-const API_BASE = 'https://api.mangadex.org'
-
-// Note: MangaDex asks clients to identify via User-Agent, but browsers FORBID setting it
-// and any custom header forces a CORS preflight that MangaDex 403s. So from the browser we
-// send a bare GET (the rate limiter below is our good-citizen mechanism instead).
+// MangaDex CORS-blocks all browser origins (including vercel.app) — route through the
+// same Cloudflare Worker that proxies images. Worker adds Access-Control-Allow-Origin.
+const PROXY_BASE = (import.meta.env?.VITE_IMAGE_PROXY as string | undefined) ?? 'http://localhost:8787'
+// Worker exposes /api/<path> which it forwards to api.mangadex.org/<path>
+const API_BASE = `${PROXY_BASE}/api`
 
 // Stay comfortably under the ~5 req/s ceiling.
 const MIN_INTERVAL_MS = 250 // -> max 4 req/s
