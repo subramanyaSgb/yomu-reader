@@ -109,6 +109,14 @@ export default function ZoomableImage({ src, alt = '', onZoomChange }: Props) {
         draggable={false}
         className="w-full select-none"
         style={{ transform: toCss(t), transformOrigin: '0 0' }}
+        onError={(e) => {
+          // Per-image recovery (FR-36 AC3): one silent retry with a cache-buster.
+          const img = e.currentTarget
+          if (!img.dataset.retried) {
+            img.dataset.retried = '1'
+            img.src = `${src}${src.includes('?') ? '&' : '?'}r=1`
+          }
+        }}
       />
     </div>
   )

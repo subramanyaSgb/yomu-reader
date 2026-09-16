@@ -101,7 +101,7 @@ Scope: FR-12, FR-13, FR-25, FR-26, FR-27, FR-28, FR-31, FR-32, FR-33, FR-34.
 
 ---
 
-## Phase 6 — Reliability, first-run, hardening (v1 ship)
+## Phase 6 — Reliability, first-run, hardening (v1 ship) ✅ COMPLETE (2026-09-16)
 
 **Goal:** it never feels broken.
 Scope: FR-35, FR-36, FR-37, all NFRs.

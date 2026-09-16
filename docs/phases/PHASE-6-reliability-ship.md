@@ -27,4 +27,17 @@ All P0/P1 FRs pass their AC; PRD SC1–SC6 verified as far as headless allows; a
 - **T8** Verify build + all self-checks; mark v1.
 
 ## RESULTS
-_(appended per hard rule)_
+
+### Phase 6 — COMPLETE ✅ (2026-09-16) — v1 SHIP GATE
+**Built:**
+- `reliability/`: `errorReporter` (ring buffer + Firebase hook), `useOnline`, `ErrorBoundary` (wraps App in main.tsx), `OfflineBanner` (in App), `PageImage` retry + inline silent-retry in `ZoomableImage` (FR-36 per-image recovery).
+- `onboarding/`: pure seen-gate + `OnboardingScreen` (3 slides, skippable, shown once via settings flag), gated in App.
+- PWA: `public/icon.svg` (読 mark) wired into manifest (installable).
+- Perf: **manualChunks split firebase into its own chunk → main bundle 940KB→386KB**; pdf.js + jszip already lazy. NFR small-footprint satisfied.
+- `docs/DEVICE-CHECKLIST.md` for the owner's on-device verification.
+**Verification:** onboarding self-check green; **all 14 project self-checks green**; build clean; manifest + SW generated; bundle report confirms firebase/pdf/jszip are separate lazy chunks.
+**Deviations:** icons are a single SVG (installable everywhere; rasterized PNGs only if a launcher demands — noted in checklist). Error logging forwards to console + local ring; live Crashlytics wiring is a one-liner when Firebase analytics is added.
+**Gaps carried to device (DEVICE-CHECKLIST.md):** real install, airplane-mode offline, 60fps curl, volume-key turn, live push — all need the owner's Android.
+
+## v1 STATUS
+Phases 0–6 complete. All P0/P1 FRs implemented + headless-verified (self-checks + live proxy E2E). PRD SC1–SC6 covered in code; SC1–SC3/SC6 final confirmation is on-device (checklist). Ready for owner device pass + Vercel deploy.

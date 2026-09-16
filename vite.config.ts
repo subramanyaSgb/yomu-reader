@@ -5,6 +5,18 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 // https://vite.dev/config/
 export default defineConfig({
+  build: {
+    rollupOptions: {
+      output: {
+        // Split firebase into its own chunk so the main bundle stays lean (NFR small footprint).
+        manualChunks(id) {
+          if (id.includes('node_modules/firebase') || id.includes('node_modules/@firebase')) {
+            return 'firebase'
+          }
+        },
+      },
+    },
+  },
   plugins: [
     react(),
     tailwindcss(),
@@ -19,7 +31,9 @@ export default defineConfig({
         display: 'standalone',
         orientation: 'portrait',
         icons: [
-          // ponytail: placeholder icons; real icons added in Phase 6 (PWA hardening)
+          { src: '/icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any maskable' },
+          // ponytail: SVG icon works for install; add rasterized 192/512 PNGs on-device
+          // if a launcher needs them (DEVICE-CHECKLIST).
         ],
       },
     }),
