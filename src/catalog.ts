@@ -109,4 +109,6 @@ export const CATALOG: CatalogEntry[] = [
   {"title":"Annarasumanara","id":"01J76XY8J2X7XNA2KE7DTGE319/Annarasumanara","wcTitle":"Annarasumanara"},
   {"title":"Noblesse","id":"01J76XY7KS655DGFQEVH9DPSGX/Noblesse","wcTitle":"Noblesse"},
   {"title":"Dice","id":"01J76XY8T2JH0M0DMYBQ2ZTSJG/DICE","wcTitle":"Dice"},
+  {"title":"The Investor Who Sees the Future","id":"","wcTitle":"","unavailable":true},
+  {"title":"Super Gene","id":"","wcTitle":"","unavailable":true},
 ]

@@ -1,6 +1,8 @@
 // One screen per shelf: Reading / Want to Read / Completed. The whole app is these
 // three grids over the curated catalog (src/catalog.ts) — no external discovery.
 
+import { useState } from 'react'
+import { Search, X } from 'lucide-react'
 import { CATALOG, type CatalogEntry } from '../../catalog'
 import { kkCoverUrl } from '../../lib/kakalot/client'
 import { coverHue } from '../../components/CoverGradient'
@@ -52,7 +54,12 @@ export default function ShelfScreen({
   onOpen: (id: string, source: SeriesSource) => void
 }) {
   const { shelves, loaded } = useShelves()
-  const entries = CATALOG.filter(e => shelfOf(shelves, e.id || e.title) === shelf)
+  const [term, setTerm] = useState('')
+  const q = term.trim().toLowerCase()
+  const entries = CATALOG.filter(e =>
+    shelfOf(shelves, e.id || e.title) === shelf &&
+    (!q || e.title.toLowerCase().includes(q) || e.wcTitle.toLowerCase().includes(q)),
+  )
 
   return (
     <div style={{ background: 'var(--y-bg)', minHeight: '100%' }}>
@@ -68,9 +75,28 @@ export default function ShelfScreen({
         {SHELF_TITLE[shelf]}
       </h1>
 
+      {/* Filter within this shelf */}
+      <div style={{ position: 'relative', height: 46, margin: '0 18px 14px' }}>
+        <Search size={16} style={{ position: 'absolute', left: 13, top: '50%', transform: 'translateY(-50%)', color: 'var(--y-dim)' }} />
+        <input
+          value={term}
+          onChange={e => setTerm(e.target.value)}
+          placeholder={`Search ${SHELF_TITLE[shelf]}`}
+          style={{
+            width: '100%', height: '100%', background: 'var(--y-surf)',
+            border: '1px solid var(--y-line)', borderRadius: 13,
+            paddingLeft: 38, paddingRight: term ? 44 : 13,
+            fontSize: 13.5, fontWeight: 600, color: 'var(--y-hi)', outline: 'none',
+          }}
+        />
+        {term && (
+          <button onClick={() => setTerm('')} style={{ position: 'absolute', right: 7, top: '50%', transform: 'translateY(-50%)', width: 26, height: 26, borderRadius: '50%', background: 'var(--y-line)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--y-mid)' }}><X size={13} /></button>
+        )}
+      </div>
+
       {loaded && entries.length === 0 && (
         <p style={{ fontSize: 12.5, fontWeight: 500, color: 'var(--y-dim)', padding: '24px 18px', textAlign: 'center', lineHeight: 1.6 }}>
-          {EMPTY_HINT[shelf]}
+          {q ? `No matches for “${term.trim()}” on this shelf.` : EMPTY_HINT[shelf]}
         </p>
       )}
 
