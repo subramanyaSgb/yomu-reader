@@ -116,7 +116,7 @@ Scope: FR-35, FR-36, FR-37, all NFRs.
 
 ---
 
-## Phase 7 — v2 (experimental / additive)
+## Phase 7 — v2 (experimental / additive) ✅ COMPLETE (2026-09-16)
 
 **Goal:** the ambitious extras, layered without regressing v1.
 Scope: FR-4, FR-10, ML upscaling.
