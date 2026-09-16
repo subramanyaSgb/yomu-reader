@@ -7,6 +7,8 @@ import {
   type MDChapter,
 } from '../../lib/mangadex/queries'
 import { useKakalotSearch, useKakalotChapters } from '../../lib/kakalot/queries'
+import { useComickComic, useComickChapters } from '../../lib/comick/queries'
+import { comickCoverFrom } from '../../lib/comick/client'
 import { coverHue } from '../../components/CoverGradient'
 import type { SeriesSource } from '../../App'
 
@@ -30,17 +32,33 @@ interface Props {
   onRead: (readId?: string, readSource?: SeriesSource) => void
 }
 
+const STATUS_LABEL: Record<number, string> = { 1: 'ongoing', 2: 'completed', 3: 'cancelled', 4: 'hiatus' }
+
 export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
+  const isComick = source === 'comick'
   const manga = useManga(source === 'mangadex' ? id : undefined)
   const feed = useChapterFeed(source === 'mangadex' ? id : undefined)
+  const comic = useComickComic(isComick ? id : undefined)
   const [order, setOrder] = useState<'desc' | 'asc'>('desc')
   const [synopsisExpanded, setSynopsisExpanded] = useState(false)
   const [following, setFollowing] = useState(false)
 
   const m = manga.data?.data
-  const title = m ? mangaEnTitle(m) : '…'
+  const c = comic.data
   const hue = coverHue(id)
-  const cover = m ? mangaCoverUrl(m) : null
+
+  // Normalized display fields (source-aware)
+  const title = isComick ? (c?.title ?? '…') : (m ? mangaEnTitle(m) : '…')
+  const cover = isComick ? comickCoverFrom(c?.md_covers) : (m ? mangaCoverUrl(m) : null)
+  const synopsisText = isComick ? (c?.desc ?? '') : (m?.attributes.description?.en ?? '')
+  const author = isComick ? '' : (m?.relationships?.find(r => r.type === 'author')?.attributes?.name ?? '')
+  const statusLabel = isComick ? (c ? STATUS_LABEL[c.status] : '') : m?.attributes.status
+  const genres: string[] = isComick
+    ? (c?.md_comic_md_genres ?? []).map(g => g.md_genres?.name ?? '').filter(Boolean)
+    : (m?.attributes.tags ?? [])
+        .filter(t => t.attributes?.group === 'genre')
+        .map(t => t.attributes?.name?.en ?? '')
+        .filter(Boolean)
 
   const mdChapters = useMemo(() => {
     if (!feed.data) return []
@@ -48,28 +66,30 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
     return order === 'desc' ? [...readable].reverse() : readable
   }, [feed.data, order])
 
+  // Comick chapters (metadata only — reading resolves via Kakalot)
+  const ckFeed = useComickChapters(isComick ? c?.hid : undefined)
+  const ckChapters = useMemo(() => {
+    const chs = ckFeed.data?.chapters ?? []
+    return order === 'desc' ? chs : [...chs].reverse()
+  }, [ckFeed.data, order])
+
   const isLicensed = feed.data != null && mdChapters.length === 0 && source === 'mangadex'
 
-  // Auto-fetch Kakalot for licensed series
-  const kkSearch = useKakalotSearch(isLicensed && title && title !== '…' ? title : '')
+  // Kakalot: fallback reader source for licensed MD series AND all Comick series
+  // (Comick's API doesn't expose page images, so reading routes through Kakalot).
+  const needsKakalot = isLicensed || isComick
+  const kkSearch = useKakalotSearch(needsKakalot && title && title !== '…' ? title : '')
   const kkMangaId = kkSearch.data?.[0]?.id ?? null
   const kkFeed = useKakalotChapters(kkMangaId ?? '')
   const kkChapters = kkFeed.data?.chapters ?? []
 
-  const displayChapterCount = isLicensed ? kkChapters.length : mdChapters.length
+  const displayChapterCount = isComick ? ckChapters.length : (isLicensed ? kkChapters.length : mdChapters.length)
 
-  const synopsisText = m?.attributes.description?.en ?? ''
   const clamped = !synopsisExpanded && synopsisText.length > 148
 
   const firstMdChapter = mdChapters[mdChapters.length - 1]
   const lastMdChapter = mdChapters[0]
   const lastKkChapter = kkChapters[0]
-
-  const author = m?.relationships?.find(r => r.type === 'author')?.attributes?.name ?? ''
-  const genres: string[] = (m?.attributes.tags ?? [])
-    .filter(t => t.attributes?.group === 'genre')
-    .map(t => t.attributes?.name?.en ?? '')
-    .filter(Boolean)
 
   return (
     <div style={{ background: 'var(--y-bg)', minHeight: '100%', position: 'relative' }}>
@@ -114,19 +134,19 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
           </div>
           <div style={{ flex: 1, paddingTop: 4 }}>
             <h1 style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.1, color: 'var(--y-hi)', marginBottom: 4 }}>{title}</h1>
-            {author && <div style={{ fontSize: 11.5, fontWeight: 500, color: 'var(--y-mid)', marginBottom: 8 }}>{author} · {m?.attributes.status}</div>}
+            {author && <div style={{ fontSize: 11.5, fontWeight: 500, color: 'var(--y-mid)', marginBottom: 8 }}>{author} · {statusLabel}</div>}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
-              {m?.attributes.status && (
+              {statusLabel && (
                 <span style={{ background: 'var(--y-ok)', color: 'var(--y-onp)', fontSize: 10, fontWeight: 800, borderRadius: 6, padding: '3px 7px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                  {m.attributes.status}
+                  {statusLabel}
                 </span>
               )}
               <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--y-hi)' }}>{displayChapterCount} EN ch</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
               <Star size={14} style={{ color: 'var(--y-a)', fill: 'var(--y-a)' }} />
-              <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--y-hi)' }}>—</span>
-              <span style={{ fontSize: 10.5, fontWeight: 500, color: 'var(--y-dim)' }}>· MangaDex</span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--y-hi)' }}>{isComick ? (c?.bayesian_rating ?? '—') : '—'}</span>
+              <span style={{ fontSize: 10.5, fontWeight: 500, color: 'var(--y-dim)' }}>· {isComick ? 'Comick' : 'MangaDex'}</span>
             </div>
           </div>
         </div>
@@ -180,7 +200,10 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
         {/* Chapter list header */}
         <div style={{ borderTop: '1px solid var(--y-line)', padding: '12px 18px 8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, background: 'var(--y-bg)', zIndex: 2 }}>
           <span style={{ fontSize: 14.5, fontWeight: 800, color: 'var(--y-hi)' }}>
-            Chapters — {isLicensed ? kkChapters.length : mdChapters.length} EN
+            Chapters — {displayChapterCount} EN
+            {isComick && (
+              <span style={{ background: 'var(--y-aa)', color: 'var(--y-a)', fontSize: 9, fontWeight: 800, borderRadius: 6, padding: '2px 6px', marginLeft: 8, textTransform: 'uppercase' }}>Comick</span>
+            )}
             {isLicensed && kkChapters.length > 0 && (
               <span style={{ background: 'var(--y-aa)', color: 'var(--y-a)', fontSize: 9, fontWeight: 800, borderRadius: 6, padding: '2px 6px', marginLeft: 8, textTransform: 'uppercase' }}>Kakalot</span>
             )}
@@ -191,14 +214,32 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
         </div>
 
         {/* Loading state */}
-        {(feed.isLoading || (isLicensed && (kkSearch.isLoading || kkFeed.isLoading))) && (
+        {((feed.isLoading && !isComick) || (isComick && (comic.isLoading || ckFeed.isLoading)) || (isLicensed && (kkSearch.isLoading || kkFeed.isLoading))) && (
           <div style={{ padding: '12px 18px' }}>
             {[0,1,2,3,4].map(i => <div key={i} style={{ height: 60, borderRadius: 10, background: 'var(--y-surf)', marginBottom: 8 }} />)}
           </div>
         )}
 
+        {/* Comick chapters (metadata) — reading resolves via Kakalot */}
+        {isComick && ckChapters.map((ch) => {
+          const displayNum = ch.chap ?? '?'
+          const grp = ch.group_name?.[0] ?? 'Comick'
+          return (
+            <button key={ch.hid} onClick={() => onRead(kkMangaId ?? undefined, 'kakalot')} style={{
+              width: '100%', minHeight: 60, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '10px 18px', background: 'none', border: 'none', cursor: 'pointer',
+              borderTop: '1px solid var(--y-line2)', textAlign: 'left',
+            }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--y-hi)', marginBottom: 3 }}>Chapter {displayNum}</div>
+                <div style={{ fontSize: 11, fontWeight: 500, color: 'var(--y-dim)' }}>{[ch.title, grp].filter(Boolean).join(' · ')}</div>
+              </div>
+            </button>
+          )
+        })}
+
         {/* MangaDex chapters */}
-        {!isLicensed && mdChapters.map((ch, i) => {
+        {!isLicensed && !isComick && mdChapters.map((ch, i) => {
           const num = ch.attributes.chapter ?? `${i + 1}`
           const chTitle = ch.attributes.title ?? ''
           const group = groupName(ch)
@@ -221,7 +262,7 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
         })}
 
         {/* Kakalot chapters (for licensed series) */}
-        {isLicensed && kkChapters.map((ch) => {
+        {isLicensed && !isComick && kkChapters.map((ch) => {
           const displayNum = ch.number ?? '?'
           return (
             <button key={ch.id} onClick={() => onRead(kkMangaId ?? undefined, 'kakalot')} style={{
@@ -237,27 +278,37 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
           )
         })}
 
-        {(isLicensed ? kkChapters.length : mdChapters.length) > 0 && (
+        {displayChapterCount > 0 && (
           <p style={{ fontSize: 10.5, fontWeight: 500, color: 'var(--y-dim)', padding: '8px 18px 100px', lineHeight: 1.55 }}>
-            {isLicensed ? 'Chapters sourced from Mangakakalot (licensed on MangaDex).' : 'Only English chapters with pages on MangaDex are listed.'}
+            {isComick
+              ? 'Chapter list from Comick. Reading opens the matching series on Mangakakalot.'
+              : isLicensed
+                ? 'Chapters sourced from Mangakakalot (licensed on MangaDex).'
+                : 'Only English chapters with pages on MangaDex are listed.'}
           </p>
         )}
 
         {/* Sticky CTA */}
         <div style={{ position: 'sticky', bottom: 0, padding: '0 18px 20px', background: 'linear-gradient(to top, var(--y-bg) 45%, transparent)', zIndex: 3 }}>
-          <button onClick={() => {
-            if (isLicensed) {
-              onRead(kkMangaId ?? undefined, 'kakalot')
-            } else {
-              onRead(lastMdChapter?.id ?? firstMdChapter?.id, 'mangadex')
-            }
-          }} style={{
-            width: '100%', height: 52, borderRadius: 14, background: 'var(--y-p)', color: 'var(--y-onp)',
-            fontSize: 15, fontWeight: 700, border: 'none', cursor: 'pointer',
+          <button
+            disabled={(isComick || isLicensed) && !kkMangaId}
+            onClick={() => {
+              if (isComick || isLicensed) {
+                onRead(kkMangaId ?? undefined, 'kakalot')
+              } else {
+                onRead(lastMdChapter?.id ?? firstMdChapter?.id, 'mangadex')
+              }
+            }} style={{
+            width: '100%', height: 52, borderRadius: 14,
+            background: (isComick || isLicensed) && !kkMangaId ? 'var(--y-surf)' : 'var(--y-p)',
+            color: (isComick || isLicensed) && !kkMangaId ? 'var(--y-dim)' : 'var(--y-onp)',
+            fontSize: 15, fontWeight: 700, border: 'none', cursor: (isComick || isLicensed) && !kkMangaId ? 'default' : 'pointer',
           }}>
-            {isLicensed
-              ? (lastKkChapter ? `Continue · Ch. ${lastKkChapter.number ?? '1'}` : 'Start reading · Ch. 1')
-              : (lastMdChapter ? `Continue · Ch. ${lastMdChapter.attributes.chapter ?? '1'}` : 'Start reading · Ch. 1')
+            {isComick
+              ? (kkMangaId ? 'Read on Mangakakalot' : (kkSearch.isLoading ? 'Finding readable source…' : 'No readable source found'))
+              : isLicensed
+                ? (lastKkChapter ? `Continue · Ch. ${lastKkChapter.number ?? '1'}` : 'Start reading · Ch. 1')
+                : (lastMdChapter ? `Continue · Ch. ${lastMdChapter.attributes.chapter ?? '1'}` : 'Start reading · Ch. 1')
             }
           </button>
         </div>

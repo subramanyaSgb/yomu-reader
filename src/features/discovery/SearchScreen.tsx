@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { Search, X, Clock, WifiOff, RefreshCw } from 'lucide-react'
 import { useSearch, mangaEnTitle, mangaCoverUrl } from '../../lib/mangadex/queries'
 import { useKakalotSearch } from '../../lib/kakalot/queries'
+import { useComickSearch } from '../../lib/comick/queries'
+import { comickCoverFrom } from '../../lib/comick/client'
 import { getSetting, setSetting } from '../../lib/db/repo'
 import { coverHue } from '../../components/CoverGradient'
 import type { SeriesSource } from '../../App'
@@ -32,6 +34,7 @@ export default function SearchScreen({ onOpen }: { onOpen: (id: string, source: 
 
   const mdSearch = useSearch(debounced)
   const kkSearch = useKakalotSearch(debounced)
+  const ckSearch = useComickSearch(debounced)
 
   function remember(q: string) {
     if (!q) return
@@ -42,8 +45,9 @@ export default function SearchScreen({ onOpen }: { onOpen: (id: string, source: 
 
   const mdResults = mdSearch.data?.data ?? []
   const kkResults = kkSearch.data ?? []
-  const totalResults = mdResults.length + kkResults.length
-  const isLoading = mdSearch.isLoading || kkSearch.isLoading
+  const ckResults = ckSearch.data ?? []
+  const totalResults = mdResults.length + kkResults.length + ckResults.length
+  const isLoading = mdSearch.isLoading || kkSearch.isLoading || ckSearch.isLoading
   const hasQuery = debounced.length > 0
 
   return (
@@ -181,6 +185,36 @@ export default function SearchScreen({ onOpen }: { onOpen: (id: string, source: 
                     <div style={{ position: 'absolute', bottom: 8, left: 8 }}>
                       <span style={{ background: 'var(--y-ok)', color: 'var(--y-onp)', fontSize: 9, fontWeight: 800, borderRadius: 6, padding: '2px 6px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>KK</span>
                     </div>
+                  </div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--y-hi)', marginTop: 6, lineHeight: 1.3,
+                    overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{m.title}</div>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Comick results (best English coverage — fills licensed-series gaps) */}
+      {!isLoading && ckResults.length > 0 && (
+        <div style={{ padding: '0 18px', marginBottom: 20 }}>
+          <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--y-dim)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 10 }}>Comick</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px 16px' }}>
+            {ckResults.map(m => {
+              const cover = comickCoverFrom(m.md_covers)
+              const hue = coverHue(String(m.id))
+              return (
+                <button key={m.hid} onClick={() => { remember(debounced); onOpen(m.slug, 'comick') }}
+                  style={{ textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                  <div style={{ borderRadius: 16, overflow: 'hidden', aspectRatio: '110/152', position: 'relative',
+                    background: `linear-gradient(150deg, ${hue} 0%, color-mix(in oklab, ${hue} 36%, var(--y-bg)) 58%, var(--y-bg) 100%)` }}>
+                    {cover && <img src={cover} alt={m.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />}
+                    <div style={{ position: 'absolute', bottom: 8, left: 8 }}>
+                      <span style={{ background: 'var(--y-a)', color: 'var(--y-onp)', fontSize: 9, fontWeight: 800, borderRadius: 6, padding: '2px 6px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Comick</span>
+                    </div>
+                    {m.rating && (
+                      <div style={{ position: 'absolute', top: 8, right: 8, background: 'var(--y-ov2)', color: 'var(--y-hi)', fontSize: 10, fontWeight: 800, borderRadius: 6, padding: '2px 6px' }}>★ {m.rating}</div>
+                    )}
                   </div>
                   <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--y-hi)', marginTop: 6, lineHeight: 1.3,
                     overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{m.title}</div>

@@ -9,6 +9,7 @@
 const ALLOWED_IMAGE_HOST = /(^|\.)mangadex\.network$/
 const ALLOWED_UPLOADS = 'uploads.mangadex.org'
 const MANGADEX_API = 'https://api.mangadex.org'
+const COMICK_API = 'https://api.comick.dev'
 
 // Mangakakalot network domains
 const KAKALOT_MAIN = 'https://mangakakalot.gg'
@@ -258,6 +259,25 @@ export default {
       const headers = new Headers(corsHeaders(origin))
       headers.set('Content-Type', upstream.headers.get('Content-Type') ?? 'application/json')
       if (upstream.ok) headers.set('Cache-Control', 'public, max-age=60, s-maxage=60')
+      return new Response(upstream.body, { status: upstream.status, headers })
+    }
+
+    // /comick — Comick.dev JSON API proxy (metadata/discovery; browser is CORS-locked from it)
+    if (url.pathname.startsWith('/comick/')) {
+      const ckPath = url.pathname.slice('/comick'.length) // keeps leading slash
+      const ckUrl = new URL(COMICK_API + ckPath)
+      url.searchParams.forEach((v, k) => ckUrl.searchParams.append(k, v))
+
+      const upstream = await fetch(ckUrl.toString(), {
+        headers: {
+          'User-Agent': 'YomuReader/1.0 (personal manga PWA)',
+          Accept: 'application/json',
+        },
+        cf: { cacheTtl: 300, cacheEverything: true },
+      })
+      const headers = new Headers(corsHeaders(origin))
+      headers.set('Content-Type', upstream.headers.get('Content-Type') ?? 'application/json')
+      if (upstream.ok) headers.set('Cache-Control', 'public, max-age=300, s-maxage=300')
       return new Response(upstream.body, { status: upstream.status, headers })
     }
 

@@ -17,7 +17,7 @@ import ReaderShell from './features/reader/ReaderShell'
 import type { SeriesType } from './lib/db/schema'
 
 export type Tab = 'home' | 'search' | 'library' | 'storage' | 'profile'
-export type SeriesSource = 'mangadex' | 'kakalot'
+export type SeriesSource = 'mangadex' | 'kakalot' | 'comick'
 
 // Non-tab overlaid screens
 type OverlayScreen =
