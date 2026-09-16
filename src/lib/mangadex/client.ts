@@ -102,7 +102,9 @@ export async function mdGet<T>(
     for (const [key, value] of Object.entries(params)) {
       if (value === undefined) continue
       if (Array.isArray(value)) {
-        for (const v of value) url.searchParams.append(`${key}[]`, v)
+        // If caller already put [] in the key, don't double it.
+        const arrayKey = key.endsWith(']') ? key : `${key}[]`
+        for (const v of value) url.searchParams.append(arrayKey, v)
       } else {
         url.searchParams.set(key, String(value))
       }
