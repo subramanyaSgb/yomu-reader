@@ -318,10 +318,15 @@ export default {
       }
 
       const upstream = await fetch(parsed.toString(), {
+        headers: {
+          'Accept': 'image/webp,image/jpeg,image/*,*/*',
+          'Referer': 'https://mangadex.org/',
+          'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36',
+        },
         cf: { cacheEverything: true, cacheTtl: 86_400 },
       })
       if (!upstream.ok) {
-        return new Response('Upstream error', { status: upstream.status, headers: corsHeaders(origin) })
+        return new Response(`Upstream error ${upstream.status}`, { status: upstream.status, headers: corsHeaders(origin) })
       }
       const headers = new Headers(corsHeaders(origin))
       headers.set('Content-Type', upstream.headers.get('Content-Type') ?? 'image/jpeg')

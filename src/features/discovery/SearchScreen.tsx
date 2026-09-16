@@ -6,9 +6,6 @@ import { getSetting, setSetting } from '../../lib/db/repo'
 import { coverHue } from '../../components/CoverGradient'
 import type { SeriesSource } from '../../App'
 
-const PROXY_BASE = (import.meta.env?.VITE_IMAGE_PROXY as string | undefined) ?? 'http://localhost:8787'
-function proxyCover(u: string) { const p = new URL('/img', PROXY_BASE); p.searchParams.set('u', u); return p.toString() }
-
 const RECENT_KEY = 'search:recent'
 const FILTERS = ['All', 'Ongoing', 'Completed', 'Action', 'Romance', 'Fantasy', '2026'] as const
 
@@ -144,7 +141,7 @@ export default function SearchScreen({ onOpen }: { onOpen: (id: string, source: 
           <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--y-dim)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 10 }}>MangaDex</div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px 16px' }}>
             {mdResults.map(m => {
-              const raw = mangaCoverUrl(m); const cover = raw ? proxyCover(raw) : null
+              const cover = mangaCoverUrl(m)
               const title = mangaEnTitle(m); const hue = coverHue(m.id)
               return (
                 <button key={m.id} onClick={() => { remember(debounced); onOpen(m.id, 'mangadex') }}

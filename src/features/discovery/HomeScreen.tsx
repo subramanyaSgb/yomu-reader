@@ -3,14 +3,8 @@ import { usePopular, useLatestUpdates, mangaEnTitle, mangaCoverUrl, type MDManga
 import { coverHue } from '../../components/CoverGradient'
 import type { SeriesSource } from '../../App'
 
-const PROXY_BASE = (import.meta.env?.VITE_IMAGE_PROXY as string | undefined) ?? 'http://localhost:8787'
-function proxyCover(u: string) {
-  const p = new URL('/img', PROXY_BASE); p.searchParams.set('u', u); return p.toString()
-}
-
 function CoverImg({ manga, width, height, radius = 14 }: { manga: MDManga; width: number; height: number; radius?: number }) {
-  const raw = mangaCoverUrl(manga)
-  const cover = raw ? proxyCover(raw) : null
+  const cover = mangaCoverUrl(manga) // uploads.mangadex.org has CORS — no proxy needed
   const hue = coverHue(manga.id)
   return (
     <div style={{ width, height, borderRadius: radius, overflow: 'hidden', flexShrink: 0, position: 'relative',
@@ -67,8 +61,7 @@ export default function HomeScreen({
   const hero = popular.data?.data?.[0]
   const heroTitle = hero ? mangaEnTitle(hero) : ''
   const heroHue = hero ? coverHue(hero.id) : '#17B57E'
-  const heroCoverRaw = hero ? mangaCoverUrl(hero) : null
-  const heroCover = heroCoverRaw ? proxyCover(heroCoverRaw) : null
+  const heroCover = hero ? mangaCoverUrl(hero) : null
 
   return (
     <div style={{ background: 'var(--y-bg)', minHeight: '100%' }}>

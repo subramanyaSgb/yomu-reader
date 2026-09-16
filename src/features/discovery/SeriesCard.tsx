@@ -2,16 +2,6 @@ import { mangaCoverUrl, mangaEnTitle } from '../../lib/mangadex/queries'
 import type { MDManga } from '../../lib/mangadex/queries'
 import type { SeriesSource } from '../../App'
 
-const PROXY_BASE =
-  (import.meta.env?.VITE_IMAGE_PROXY as string | undefined) ?? 'http://localhost:8787'
-
-function proxyCover(coverUrl: string): string {
-  const u = new URL('/img', PROXY_BASE)
-  u.searchParams.set('u', coverUrl)
-  return u.toString()
-}
-
-// Keep old export for any callers not yet updated
 export function mangaTitle(m: MDManga): string { return mangaEnTitle(m) }
 
 export default function SeriesCard({
@@ -21,8 +11,7 @@ export default function SeriesCard({
   manga: MDManga
   onOpen: (id: string, source: SeriesSource) => void
 }) {
-  const rawCover = mangaCoverUrl(manga)
-  const cover = rawCover ? proxyCover(rawCover) : null
+  const cover = mangaCoverUrl(manga) // uploads.mangadex.org has CORS — no proxy needed
   const title = mangaEnTitle(manga)
 
   return (

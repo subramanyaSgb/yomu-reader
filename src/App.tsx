@@ -91,7 +91,7 @@ export default function App() {
               id={overlay.id}
               source={overlay.source}
               onBack={goBack}
-              onRead={() => openReader(overlay.id, overlay.source)}
+              onRead={(readId, readSource) => openReader(readId ?? overlay.id, readSource ?? overlay.source)}
             />
           )}
           {overlay?.kind === 'local' && (

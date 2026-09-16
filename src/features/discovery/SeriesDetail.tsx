@@ -6,11 +6,10 @@ import {
   useManga, useChapterFeed, mangaEnTitle, mangaCoverUrl,
   type MDChapter,
 } from '../../lib/mangadex/queries'
+import { useKakalotSearch, useKakalotChapters } from '../../lib/kakalot/queries'
 import { coverHue } from '../../components/CoverGradient'
 import type { SeriesSource } from '../../App'
 
-const PROXY_BASE = (import.meta.env?.VITE_IMAGE_PROXY as string | undefined) ?? 'http://localhost:8787'
-function proxyCover(u: string) { const p = new URL('/img', PROXY_BASE); p.searchParams.set('u', u); return p.toString() }
 
 function timeAgo(iso: string): string {
   const diff = (Date.now() - new Date(iso).getTime()) / 1000
@@ -28,7 +27,7 @@ interface Props {
   id: string
   source: SeriesSource
   onBack: () => void
-  onRead: (chapterId?: string) => void
+  onRead: (readId?: string, readSource?: SeriesSource) => void
 }
 
 export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
@@ -41,21 +40,30 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
   const m = manga.data?.data
   const title = m ? mangaEnTitle(m) : '…'
   const hue = coverHue(id)
-  const rawCover = m ? mangaCoverUrl(m) : null
-  const cover = rawCover ? proxyCover(rawCover) : null
+  const cover = m ? mangaCoverUrl(m) : null
 
-  const chapters = useMemo(() => {
+  const mdChapters = useMemo(() => {
     if (!feed.data) return []
     const readable = feed.data.data.filter(c => !c.attributes.externalUrl && c.attributes.pages > 0)
     return order === 'desc' ? [...readable].reverse() : readable
   }, [feed.data, order])
 
+  const isLicensed = feed.data != null && mdChapters.length === 0 && source === 'mangadex'
+
+  // Auto-fetch Kakalot for licensed series
+  const kkSearch = useKakalotSearch(isLicensed && title && title !== '…' ? title : '')
+  const kkMangaId = kkSearch.data?.[0]?.id ?? null
+  const kkFeed = useKakalotChapters(kkMangaId ?? '')
+  const kkChapters = kkFeed.data?.chapters ?? []
+
+  const displayChapterCount = isLicensed ? kkChapters.length : mdChapters.length
+
   const synopsisText = m?.attributes.description?.en ?? ''
   const clamped = !synopsisExpanded && synopsisText.length > 148
 
-  const isLicensed = feed.data != null && chapters.length === 0
-  const firstChapter = chapters[chapters.length - 1]
-  const lastChapter = chapters[0]
+  const firstMdChapter = mdChapters[mdChapters.length - 1]
+  const lastMdChapter = mdChapters[0]
+  const lastKkChapter = kkChapters[0]
 
   const author = m?.relationships?.find(r => r.type === 'author')?.attributes?.name ?? ''
   const genres: string[] = (m?.attributes.tags ?? [])
@@ -113,7 +121,7 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
                   {m.attributes.status}
                 </span>
               )}
-              <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--y-hi)' }}>{chapters.length} EN ch</span>
+              <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--y-hi)' }}>{displayChapterCount} EN ch</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
               <Star size={14} style={{ color: 'var(--y-a)', fill: 'var(--y-a)' }} />
@@ -171,58 +179,86 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
 
         {/* Chapter list header */}
         <div style={{ borderTop: '1px solid var(--y-line)', padding: '12px 18px 8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, background: 'var(--y-bg)', zIndex: 2 }}>
-          <span style={{ fontSize: 14.5, fontWeight: 800, color: 'var(--y-hi)' }}>Chapters — {chapters.length} EN</span>
+          <span style={{ fontSize: 14.5, fontWeight: 800, color: 'var(--y-hi)' }}>
+            Chapters — {isLicensed ? kkChapters.length : mdChapters.length} EN
+            {isLicensed && kkChapters.length > 0 && (
+              <span style={{ background: 'var(--y-aa)', color: 'var(--y-a)', fontSize: 9, fontWeight: 800, borderRadius: 6, padding: '2px 6px', marginLeft: 8, textTransform: 'uppercase' }}>Kakalot</span>
+            )}
+          </span>
           <button onClick={() => setOrder(o => o === 'desc' ? 'asc' : 'desc')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 700, color: 'var(--y-dim)' }}>
             {order === 'desc' ? 'Newest first' : 'Oldest first'}
           </button>
         </div>
 
-        {/* Chapters */}
-        {feed.isLoading && (
+        {/* Loading state */}
+        {(feed.isLoading || (isLicensed && (kkSearch.isLoading || kkFeed.isLoading))) && (
           <div style={{ padding: '12px 18px' }}>
             {[0,1,2,3,4].map(i => <div key={i} style={{ height: 60, borderRadius: 10, background: 'var(--y-surf)', marginBottom: 8 }} />)}
           </div>
         )}
 
-        {chapters.map((ch, i) => {
+        {/* MangaDex chapters */}
+        {!isLicensed && mdChapters.map((ch, i) => {
           const num = ch.attributes.chapter ?? `${i + 1}`
           const chTitle = ch.attributes.title ?? ''
           const group = groupName(ch)
           const when = timeAgo(ch.attributes.publishAt)
           return (
-            <button
-              key={ch.id}
-              onClick={() => onRead(ch.id)}
-              style={{
-                width: '100%', minHeight: 60, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                padding: '10px 18px', background: 'none', border: 'none', cursor: 'pointer',
-                borderTop: '1px solid var(--y-line2)', textAlign: 'left',
-              }}
-            >
+            <button key={ch.id} onClick={() => onRead(ch.id)} style={{
+              width: '100%', minHeight: 60, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '10px 18px', background: 'none', border: 'none', cursor: 'pointer',
+              borderTop: '1px solid var(--y-line2)', textAlign: 'left',
+            }}>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--y-hi)', marginBottom: 3 }}>Chapter {num}</div>
                 <div style={{ fontSize: 11, fontWeight: 500, color: 'var(--y-dim)' }}>{[chTitle, group, when].filter(Boolean).join(' · ')}</div>
               </div>
-              <button style={{ width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--y-dim)', flexShrink: 0 }}>
+              <span style={{ color: 'var(--y-dim)', flexShrink: 0, width: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <Download size={17} />
-              </button>
+              </span>
             </button>
           )
         })}
 
-        {chapters.length > 0 && (
+        {/* Kakalot chapters (for licensed series) */}
+        {isLicensed && kkChapters.map((ch) => {
+          const displayNum = ch.number ?? '?'
+          return (
+            <button key={ch.id} onClick={() => onRead(kkMangaId ?? undefined, 'kakalot')} style={{
+              width: '100%', minHeight: 60, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '10px 18px', background: 'none', border: 'none', cursor: 'pointer',
+              borderTop: '1px solid var(--y-line2)', textAlign: 'left',
+            }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--y-hi)', marginBottom: 3 }}>Chapter {displayNum}</div>
+                <div style={{ fontSize: 11, fontWeight: 500, color: 'var(--y-dim)' }}>{ch.title ?? 'Mangakakalot'}</div>
+              </div>
+            </button>
+          )
+        })}
+
+        {(isLicensed ? kkChapters.length : mdChapters.length) > 0 && (
           <p style={{ fontSize: 10.5, fontWeight: 500, color: 'var(--y-dim)', padding: '8px 18px 100px', lineHeight: 1.55 }}>
-            Only English chapters with pages on MangaDex are listed. Numbering gaps reflect missing English releases.
+            {isLicensed ? 'Chapters sourced from Mangakakalot (licensed on MangaDex).' : 'Only English chapters with pages on MangaDex are listed.'}
           </p>
         )}
 
         {/* Sticky CTA */}
         <div style={{ position: 'sticky', bottom: 0, padding: '0 18px 20px', background: 'linear-gradient(to top, var(--y-bg) 45%, transparent)', zIndex: 3 }}>
-          <button onClick={() => onRead(firstChapter?.id)} style={{
+          <button onClick={() => {
+            if (isLicensed) {
+              onRead(kkMangaId ?? undefined, 'kakalot')
+            } else {
+              onRead(lastMdChapter?.id ?? firstMdChapter?.id, 'mangadex')
+            }
+          }} style={{
             width: '100%', height: 52, borderRadius: 14, background: 'var(--y-p)', color: 'var(--y-onp)',
             fontSize: 15, fontWeight: 700, border: 'none', cursor: 'pointer',
           }}>
-            {lastChapter ? `Continue · Ch. ${lastChapter.attributes.chapter ?? '1'}` : `Start reading · Ch. 1`}
+            {isLicensed
+              ? (lastKkChapter ? `Continue · Ch. ${lastKkChapter.number ?? '1'}` : 'Start reading · Ch. 1')
+              : (lastMdChapter ? `Continue · Ch. ${lastMdChapter.attributes.chapter ?? '1'}` : 'Start reading · Ch. 1')
+            }
           </button>
         </div>
       </div>
