@@ -376,22 +376,22 @@ export default function ReaderShell({ seriesId, seriesSource, seriesType, startC
       {hudVisible && (
         <div style={{
           position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 20,
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-          padding: '18px 14px 22px',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+          padding: '18px 10px 22px',
           background: 'linear-gradient(to top, rgba(0,0,0,0.75), transparent)',
         }}>
           <button
             disabled={chapterIndex === 0}
             aria-label="Previous chapter"
             onClick={() => setChapterIndex(i => Math.max(0, i - 1))}
-            style={{ height: 40, padding: '0 14px', borderRadius: 20, background: 'rgba(255,255,255,0.12)', border: 'none', cursor: 'pointer', color: chapterIndex === 0 ? 'rgba(255,255,255,0.3)' : '#fff', backdropFilter: 'blur(8px)', fontSize: 12.5, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 2 }}>
-            <ChevronLeft size={15} /> Prev
+            style={{ width: 40, height: 40, flexShrink: 0, borderRadius: '50%', background: 'rgba(255,255,255,0.12)', border: 'none', cursor: 'pointer', color: chapterIndex === 0 ? 'rgba(255,255,255,0.3)' : '#fff', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <ChevronLeft size={18} />
           </button>
-          <span style={{ background: 'rgba(0,0,0,0.55)', color: '#fff', fontSize: 12, fontWeight: 700, borderRadius: 20, padding: '9px 14px', backdropFilter: 'blur(8px)', whiteSpace: 'nowrap' }}>
+          <span style={{ background: 'rgba(0,0,0,0.55)', color: '#fff', fontSize: 12, fontWeight: 700, borderRadius: 20, padding: '9px 12px', backdropFilter: 'blur(8px)', whiteSpace: 'nowrap', minWidth: 0, flexShrink: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>
             Ch. {currentRef?.number ?? '?'}{mode === 'scroll' ? ` · ${progressPct}%` : ''} · {chapterIndex + 1}/{chapterRefs.length}
           </span>
           {mode === 'scroll' && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
               <button
                 onClick={() => setAutoScrollOn(a => !a)}
                 aria-label={autoScrollOn ? 'Pause auto-scroll' : 'Start auto-scroll'}
@@ -417,8 +417,8 @@ export default function ReaderShell({ seriesId, seriesSource, seriesType, startC
             disabled={chapterIndex >= chapterRefs.length - 1}
             aria-label="Next chapter"
             onClick={() => setChapterIndex(i => Math.min(chapterRefs.length - 1, i + 1))}
-            style={{ height: 40, padding: '0 14px', borderRadius: 20, background: 'rgba(255,255,255,0.12)', border: 'none', cursor: 'pointer', color: chapterIndex >= chapterRefs.length - 1 ? 'rgba(255,255,255,0.3)' : '#fff', backdropFilter: 'blur(8px)', fontSize: 12.5, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 2 }}>
-            Next <ChevronRight size={15} />
+            style={{ width: 40, height: 40, flexShrink: 0, borderRadius: '50%', background: 'rgba(255,255,255,0.12)', border: 'none', cursor: 'pointer', color: chapterIndex >= chapterRefs.length - 1 ? 'rgba(255,255,255,0.3)' : '#fff', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <ChevronRight size={18} />
           </button>
         </div>
       )}
