@@ -62,11 +62,12 @@ export default function ReaderShell({ seriesId, seriesSource, seriesType, startC
   const [initialPage, setInitialPage] = useState(0)
 
   // Auto-hide the HUD after a few seconds (comix-style immersive reading).
+  // Adjusting the auto-scroll speed resets the timer so it doesn't vanish mid-adjust.
   useEffect(() => {
     if (!hudVisible) return
     const t = window.setTimeout(() => setHudVisible(false), 3000)
     return () => window.clearTimeout(t)
-  }, [hudVisible, chapterIndex])
+  }, [hudVisible, chapterIndex, mem.autoSpeed])
 
   useWakeLock(true)
 
@@ -390,12 +391,27 @@ export default function ReaderShell({ seriesId, seriesSource, seriesType, startC
             Ch. {currentRef?.number ?? '?'}{mode === 'scroll' ? ` · ${progressPct}%` : ''} · {chapterIndex + 1}/{chapterRefs.length}
           </span>
           {mode === 'scroll' && (
-            <button
-              onClick={() => setAutoScrollOn(a => !a)}
-              aria-label={autoScrollOn ? 'Pause auto-scroll' : 'Start auto-scroll'}
-              style={{ height: 40, padding: '0 14px', borderRadius: 20, background: autoScrollOn ? 'var(--y-p)' : 'rgba(255,255,255,0.12)', border: 'none', cursor: 'pointer', color: autoScrollOn ? 'var(--y-onp)' : '#fff', backdropFilter: 'blur(8px)', fontSize: 12.5, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 5 }}>
-              {autoScrollOn ? <Pause size={13} /> : <Play size={13} />} Auto
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <button
+                onClick={() => setAutoScrollOn(a => !a)}
+                aria-label={autoScrollOn ? 'Pause auto-scroll' : 'Start auto-scroll'}
+                style={{ height: 40, padding: '0 14px', borderRadius: autoScrollOn ? '20px 6px 6px 20px' : 20, background: autoScrollOn ? 'var(--y-p)' : 'rgba(255,255,255,0.12)', border: 'none', cursor: 'pointer', color: autoScrollOn ? 'var(--y-onp)' : '#fff', backdropFilter: 'blur(8px)', fontSize: 12.5, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 5 }}>
+                {autoScrollOn ? <Pause size={13} /> : <Play size={13} />} Auto
+              </button>
+              {autoScrollOn && (
+                <div style={{ display: 'flex', alignItems: 'center', height: 40, borderRadius: '6px 20px 20px 6px', background: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(8px)' }}>
+                  <button
+                    onClick={() => update({ autoSpeed: Math.max(1, (mem.autoSpeed ?? 2) - 1) })}
+                    aria-label="Slower"
+                    style={{ width: 34, height: 40, background: 'none', border: 'none', cursor: 'pointer', color: '#fff', fontSize: 16, fontWeight: 800 }}>−</button>
+                  <span style={{ minWidth: 24, textAlign: 'center', color: '#fff', fontSize: 11.5, fontWeight: 800 }}>{mem.autoSpeed ?? 2}×</span>
+                  <button
+                    onClick={() => update({ autoSpeed: Math.min(8, (mem.autoSpeed ?? 2) + 1) })}
+                    aria-label="Faster"
+                    style={{ width: 34, height: 40, background: 'none', border: 'none', cursor: 'pointer', color: '#fff', fontSize: 16, fontWeight: 800 }}>+</button>
+                </div>
+              )}
+            </div>
           )}
           <button
             disabled={chapterIndex >= chapterRefs.length - 1}
