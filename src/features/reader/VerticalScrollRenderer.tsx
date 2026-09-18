@@ -4,7 +4,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useChapterPages } from './useChapterPages'
-import { toAnchor, fromAnchor, type ImageBox, type ScrollAnchor } from './scrollAnchor'
+import { toAnchor, type ImageBox, type ScrollAnchor } from './scrollAnchor'
 import type { ImageQuality } from '../../lib/proxy/imageUrl'
 import ZoomableImage from './zoom/ZoomableImage'
 
@@ -84,32 +84,46 @@ export default function VerticalScrollRenderer({
     return () => window.clearInterval(id)
   }, [autoScroll, autoScrollSpeed])
 
-  // Exact-position resume: images load progressively and shift layout, so keep
-  // re-applying the anchor scroll target until it stabilizes — abort the moment the
-  // user interacts so we never fight a real scroll.
-  const anchorDone = useRef(false)
+  // Exact-position resume. Two subtleties, both learned the hard way:
+  // 1. content-visibility gives UNLOADED images an estimated height, so "the target
+  //    has a height" is NOT proof the layout is real — we force-load the target and
+  //    its neighbours (loading='eager') and pin to the target IMAGE each tick until
+  //    both the scroll position and the target's own height are stable.
+  // 2. While restoring, no anchor may be SAVED (see handleScroll) and only real
+  //    scroll intent (wheel/touchmove) cancels — a tap to show the HUD must not.
+  const anchorDone = useRef(!initialAnchor || (initialAnchor.imageIndex === 0 && initialAnchor.offsetPct === 0))
   useEffect(() => {
     if (!initialAnchor || anchorDone.current) return
-    if (initialAnchor.imageIndex === 0 && initialAnchor.offsetPct === 0) { anchorDone.current = true; return }
     const el = scroller.current
     if (!el) return
     let stableHits = 0
+    let lastHeight = -1
     let cancelled = false
     const cancel = () => { cancelled = true; anchorDone.current = true }
-    el.addEventListener('pointerdown', cancel, { once: true })
     el.addEventListener('wheel', cancel, { once: true, passive: true })
+    el.addEventListener('touchmove', cancel, { once: true, passive: true })
     const started = performance.now()
     const timer = window.setInterval(() => {
-      if (cancelled || performance.now() - started > 20_000) { window.clearInterval(timer); return }
+      if (cancelled || performance.now() - started > 20_000) {
+        anchorDone.current = true
+        window.clearInterval(timer)
+        return
+      }
       const section = el.querySelector(`[data-chapter-index="${currentIndexRef.current}"]`)
       if (!section) return
-      const boxes: ImageBox[] = Array.from(section.querySelectorAll('img')).map((img) => ({
-        top: (img.parentElement as HTMLElement).offsetTop,
-        height: (img.parentElement as HTMLElement).offsetHeight,
-      }))
-      if (boxes.length <= initialAnchor.imageIndex || boxes[initialAnchor.imageIndex].height === 0) return
-      const target = fromAnchor(initialAnchor, boxes)
-      if (Math.abs(el.scrollTop - target) < 4) {
+      const imgs = Array.from(section.querySelectorAll('img'))
+      if (imgs.length <= initialAnchor.imageIndex) return
+      // Force the browser to actually fetch the target area (lazy images offscreen
+      // would otherwise keep their estimated size forever).
+      for (let i = Math.max(0, initialAnchor.imageIndex - 1); i <= Math.min(imgs.length - 1, initialAnchor.imageIndex + 1); i++) {
+        imgs[i].loading = 'eager'
+      }
+      const wrapper = imgs[initialAnchor.imageIndex].parentElement as HTMLElement
+      if (!imgs[initialAnchor.imageIndex].complete || wrapper.offsetHeight === 0) return
+      const target = wrapper.offsetTop + initialAnchor.offsetPct * wrapper.offsetHeight
+      const heightStable = wrapper.offsetHeight === lastHeight
+      lastHeight = wrapper.offsetHeight
+      if (Math.abs(el.scrollTop - target) < 4 && heightStable) {
         if (++stableHits >= 3) { anchorDone.current = true; window.clearInterval(timer) }
       } else {
         stableHits = 0
@@ -118,8 +132,8 @@ export default function VerticalScrollRenderer({
     }, 250)
     return () => {
       window.clearInterval(timer)
-      el.removeEventListener('pointerdown', cancel)
       el.removeEventListener('wheel', cancel)
+      el.removeEventListener('touchmove', cancel)
     }
   }, [initialAnchor])
 
@@ -176,11 +190,16 @@ export default function VerticalScrollRenderer({
           currentIndexRef.current = idx
           onChapterChange?.(idx)
         }
-        const boxes: ImageBox[] = Array.from(s.querySelectorAll('img')).map((img) => ({
-          top: (img.parentElement as HTMLElement).offsetTop,
-          height: (img.parentElement as HTMLElement).offsetHeight,
-        }))
-        onAnchorChange?.(toAnchor(scrollTop, boxes))
+        // NEVER save position while the restore loop is still converging — its
+        // programmatic scrolls fire this handler, and persisting those transient
+        // spots is exactly how "resume moved me forward" happened.
+        if (anchorDone.current) {
+          const boxes: ImageBox[] = Array.from(s.querySelectorAll('img')).map((img) => ({
+            top: (img.parentElement as HTMLElement).offsetTop,
+            height: (img.parentElement as HTMLElement).offsetHeight,
+          }))
+          onAnchorChange?.(toAnchor(scrollTop, boxes))
+        }
         const pct = s.offsetHeight > clientHeight
           ? Math.min(100, Math.max(0, Math.round(((scrollTop - s.offsetTop + clientHeight) / s.offsetHeight) * 100)))
           : 100
