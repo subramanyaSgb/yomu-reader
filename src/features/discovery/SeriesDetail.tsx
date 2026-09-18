@@ -36,6 +36,18 @@ function timeAgo(iso: string): string {
   return `${Math.round(diff / 86400)}d ago`
 }
 
+/** Release date for chapter rows: relative when recent, calendar date when old. */
+function releasedWhen(iso: string): string {
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return ''
+  const days = (Date.now() - d.getTime()) / 86_400_000
+  if (days < 30) return timeAgo(iso)
+  return d.toLocaleDateString(undefined, {
+    month: 'short', day: 'numeric',
+    year: d.getFullYear() === new Date().getFullYear() ? undefined : 'numeric',
+  })
+}
+
 function groupName(ch: MDChapter): string {
   const rel = ch.relationships.find(r => r.type === 'scanlation_group') as any
   return rel?.attributes?.name ?? 'Unknown'
@@ -590,7 +602,9 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
                     Chapter {displayNum}
                     {isCurrent && <span style={{ fontSize: 9, fontWeight: 800, marginLeft: 8, background: 'var(--y-pa)', color: 'var(--y-plt)', borderRadius: 6, padding: '2px 6px', textTransform: 'uppercase' }}>Continue</span>}
                   </div>
-                  <div style={{ fontSize: 11, fontWeight: 500, color: 'var(--y-dim)' }}>{ch.title ?? 'WeebCentral'}</div>
+                  <div style={{ fontSize: 11, fontWeight: 500, color: 'var(--y-dim)' }}>
+                    {[ch.title, ch.publishAt ? releasedWhen(ch.publishAt) : null].filter(Boolean).join(' · ') || '—'}
+                  </div>
                 </div>
               </button>
               {/* row actions: download / read state */}
