@@ -12,6 +12,8 @@ body,
   background: #0d0d0d;
   color: #e0e0e0;
   font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
+  /* No pinch/double-tap zoom anywhere — the app is fixed-scale by design. */
+  touch-action: pan-x pan-y;
 }
 
 /* Professional touch feedback everywhere: no blue tap flash, subtle press dim. */

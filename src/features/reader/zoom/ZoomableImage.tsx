@@ -1,120 +1,44 @@
-// Zoomable image (FR-9): pinch-to-zoom + pan while zoomed; single tap toggles the HUD.
-// Double-tap zoom removed by owner request (it fired accidentally while reading).
-// Uses pure zoomMath so the tricky part is already tested.
+// Strip page image. Zoom removed by owner request (pinch/double-tap zoomed the whole
+// app and clashed with system gestures) — this is now a plain image with single-tap
+// HUD toggle, failure retry, and content-visibility for flat memory on long strips.
 
 import { useRef, useState, useReducer, type PointerEvent as ReactPointerEvent } from 'react'
-import {
-  identity,
-  zoomToPoint,
-  clampPan,
-  toCss,
-  type Transform,
-} from './zoomMath'
 
 interface Props {
   src: string
   alt?: string
-  onZoomChange?: (zoomed: boolean) => void
   onTap?: () => void
 }
 
-export default function ZoomableImage({ src, alt = '', onZoomChange, onTap }: Props) {
-  const ref = useRef<HTMLDivElement>(null)
-  const [t, setT] = useState<Transform>(identity())
-  const pan = useRef<{ x: number; y: number; tx: number; ty: number } | null>(null)
-  const pinch = useRef<{ dist: number; scale: number } | null>(null)
-  const pointers = useRef(new Map<number, { x: number; y: number }>())
+export default function ZoomableImage({ src, alt = '', onTap }: Props) {
   const downPos = useRef<{ x: number; y: number } | null>(null)
   const [failed, setFailed] = useState(false)
   const [retryNonce, bumpRetry] = useReducer((n: number) => n + 1, 0)
 
-  function size() {
-    const r = ref.current?.getBoundingClientRect()
-    return { w: r?.width ?? 0, h: r?.height ?? 0 }
-  }
-  function apply(next: Transform) {
-    const { w, h } = size()
-    const clamped = clampPan(next, w, h)
-    setT(clamped)
-    onZoomChange?.(clamped.scale > 1)
-  }
-  function localPoint(e: { clientX: number; clientY: number }) {
-    const r = ref.current!.getBoundingClientRect()
-    return { px: e.clientX - r.left, py: e.clientY - r.top }
-  }
-
   function onPointerDown(e: ReactPointerEvent) {
-    ref.current?.setPointerCapture(e.pointerId)
-    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
     downPos.current = { x: e.clientX, y: e.clientY }
-
-    if (pointers.current.size === 2) {
-      const [a, b] = [...pointers.current.values()]
-      pinch.current = { dist: dist(a, b), scale: t.scale }
-      pan.current = null
-      return
-    }
-
-    if (t.scale > 1) pan.current = { x: e.clientX, y: e.clientY, tx: t.tx, ty: t.ty }
-  }
-
-  function onPointerMove(e: ReactPointerEvent) {
-    if (!pointers.current.has(e.pointerId)) return
-    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
-
-    if (pinch.current && pointers.current.size === 2) {
-      const [a, b] = [...pointers.current.values()]
-      const ratio = dist(a, b) / pinch.current.dist
-      const scale = Math.min(3, Math.max(1, pinch.current.scale * ratio))
-      const mid = { clientX: (a.x + b.x) / 2, clientY: (a.y + b.y) / 2 }
-      const { px, py } = localPoint(mid)
-      apply(zoomToPoint(t, scale, px, py))
-      return
-    }
-
-    if (pan.current) {
-      apply({
-        scale: t.scale,
-        tx: pan.current.tx + (e.clientX - pan.current.x),
-        ty: pan.current.ty + (e.clientY - pan.current.y),
-      })
-    }
   }
 
   function onPointerUp(e: ReactPointerEvent) {
-    // Single-tap (small movement, not a pinch, not zoomed): toggle HUD immediately —
-    // no double-tap gesture exists anymore, so no disambiguation delay needed.
     if (
-      onTap && downPos.current && pointers.current.size === 1 && !pinch.current &&
-      t.scale === 1 &&
+      onTap && downPos.current &&
       Math.hypot(e.clientX - downPos.current.x, e.clientY - downPos.current.y) < 10
     ) {
       onTap()
     }
-    pointers.current.delete(e.pointerId)
-    if (pointers.current.size < 2) pinch.current = null
-    if (pointers.current.size === 0) pan.current = null
+    downPos.current = null
   }
 
   return (
     <div
-      ref={ref}
       className="relative w-full overflow-hidden"
-      // CRITICAL: touch-action must allow vertical panning at 1x or the long-strip
-      // cannot be scrolled by touch at all (every image swallowed the gesture).
-      // Only lock gestures while actually zoomed (panning the image ourselves).
       // content-visibility: offscreen pages skip layout/paint and their decoded
       // bitmaps get discarded — long sessions stay flat on memory. `auto <est>`
       // remembers the real size once rendered, so no scroll jumps.
-      style={{
-        touchAction: t.scale > 1 ? 'none' : 'pan-y',
-        contentVisibility: 'auto',
-        containIntrinsicSize: 'auto 600px',
-      }}
+      style={{ contentVisibility: 'auto', containIntrinsicSize: 'auto 600px' }}
       onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
-      onPointerCancel={onPointerUp}
+      onPointerCancel={() => { downPos.current = null }}
     >
       <img
         key={retryNonce}
@@ -124,7 +48,6 @@ export default function ZoomableImage({ src, alt = '', onZoomChange, onTap }: Pr
         decoding="async"
         draggable={false}
         className="w-full select-none"
-        style={{ transform: toCss(t), transformOrigin: '0 0' }}
         onError={(e) => {
           // Per-image recovery (FR-36 AC3): one silent retry with a cache-buster,
           // then a visible tap-to-retry placeholder instead of a dead blank space.
@@ -153,8 +76,4 @@ export default function ZoomableImage({ src, alt = '', onZoomChange, onTap }: Pr
       )}
     </div>
   )
-}
-
-function dist(a: { x: number; y: number }, b: { x: number; y: number }) {
-  return Math.hypot(a.x - b.x, a.y - b.y)
 }

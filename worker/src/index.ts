@@ -74,14 +74,28 @@ async function buddyChapters(
     comizyGet(`/titles/${titleId}/chapters`),
   ])
   const raw: any[] = list?.data?.chapters ?? []
-  const chapters: KakalotChapter[] = raw.map((c) => ({
+  const parsed: KakalotChapter[] = raw.map((c) => ({
     // Pages come from the chapter PAGE (the images API truncates to 3 without auth),
     // so the chapter id carries the slugs the page URL needs.
     id: `buddy:${mangaSlug}:${c.slug}`,
     number: String(c.name ?? '').match(/(\d+(?:\.\d+)?)\s*$/)?.[1] ?? null,
     title: c.name ?? null,
     publishAt: c.updated_at ?? '',
-  })).reverse() // API is newest-first; reader wants ascending
+  }))
+  // Comizy's list is UPLOAD-ordered, not chapter-ordered — re-uploads interleave
+  // (628, 627, 615, 626 …). Sort numerically and dedupe per number (keep the newest
+  // upload). Fall back to plain reverse only if numbers don't parse.
+  let chapters: KakalotChapter[]
+  if (parsed.length > 0 && parsed.every((c) => c.number != null)) {
+    const byNum = new Map<string, KakalotChapter>()
+    for (const c of parsed) {
+      const prev = byNum.get(c.number!)
+      if (!prev || c.publishAt > prev.publishAt) byNum.set(c.number!, c)
+    }
+    chapters = [...byNum.values()].sort((a, b) => parseFloat(a.number!) - parseFloat(b.number!))
+  } else {
+    chapters = parsed.reverse() // API default is newest-first
+  }
   const t = det?.data?.title
   const cover = t?.cover ? proxiedImageUrl(workerOrigin, t.cover) : ''
   return { title: t?.name ?? '', chapters, cover, kind: 'manhwa' }
