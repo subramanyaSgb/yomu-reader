@@ -83,14 +83,17 @@ async function buddyChapters(
     publishAt: c.updated_at ?? '',
   }))
   // Comizy's list is UPLOAD-ordered, not chapter-ordered — re-uploads interleave
-  // (628, 627, 615, 626 …). Sort numerically and dedupe per number (keep the newest
-  // upload). Fall back to plain reverse only if numbers don't parse.
+  // (628, 627, 615, 626 …) and junk entries ("Notice.") carry no number. Keep only
+  // numbered chapters, dedupe per number (newest upload wins — covers typo
+  // re-uploads like "Chpater 24"/"Chapter 24"), sort numerically ascending.
+  const numbered = parsed.filter((c) => c.number != null)
   let chapters: KakalotChapter[]
-  if (parsed.length > 0 && parsed.every((c) => c.number != null)) {
+  if (numbered.length > 0) {
     const byNum = new Map<string, KakalotChapter>()
-    for (const c of parsed) {
-      const prev = byNum.get(c.number!)
-      if (!prev || c.publishAt > prev.publishAt) byNum.set(c.number!, c)
+    for (const c of numbered) {
+      const key = String(parseFloat(c.number!)) // "24" and "24.0" collapse
+      const prev = byNum.get(key)
+      if (!prev || c.publishAt > prev.publishAt) byNum.set(key, c)
     }
     chapters = [...byNum.values()].sort((a, b) => parseFloat(a.number!) - parseFloat(b.number!))
   } else {
