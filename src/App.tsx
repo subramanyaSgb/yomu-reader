@@ -16,6 +16,9 @@ import UpcomingScreen from './features/shelf/UpcomingScreen'
 import HistoryScreen from './features/history/HistoryScreen'
 import StatsScreen from './features/history/StatsScreen'
 import SeriesDetail from './features/discovery/SeriesDetail'
+import SiteView from './features/site/SiteView'
+import ShareIntake from './features/shelf/ShareIntake'
+import { CATALOG } from './catalog'
 import type { Bookmark } from './features/bookmarks/bookmarks'
 // The reader (renderers, zoom math, resume, HUD) is the heaviest screen and isn't
 // needed to browse shelves — split it out of the startup bundle.
@@ -30,6 +33,7 @@ export type SeriesSource = 'mangadex' | 'kakalot' | 'comick'
 type OverlayScreen =
   | { kind: 'detail'; id: string; source: SeriesSource }
   | { kind: 'reader'; id: string; source: SeriesSource; type: SeriesType; startChapterId?: string; startPosition?: Bookmark['position'] }
+  | { kind: 'site'; id: string } // web: series read as the site's own (cleaned) pages
   | { kind: 'upcoming' }
   | { kind: 'history' }
   | { kind: 'stats' }
@@ -44,6 +48,8 @@ export default function App() {
   stackRef.current = stack
   const overlay = stack.length > 0 ? stack[stack.length - 1] : null
   const [onboarding, setOnboarding] = useState<boolean | null>(null)
+  // A link shared to Yomu that isn't a known series → opens the add sheet with it.
+  const [addLink, setAddLink] = useState<string | null>(null)
 
   useEffect(() => {
     loadStoredTheme()
@@ -67,7 +73,8 @@ export default function App() {
 
   useEffect(() => {
     const onPop = (e: PopStateEvent) => {
-      if (stackRef.current[stackRef.current.length - 1]?.kind === 'reader') {
+      const leaving = stackRef.current[stackRef.current.length - 1]?.kind
+      if (leaving === 'reader' || leaving === 'site') {
         setDetailRefresh(n => n + 1)
       }
       const hs = e.state as { stack?: OverlayScreen[] } | null
@@ -89,7 +96,17 @@ export default function App() {
   }
 
   function openSeries(id: string, source: SeriesSource = 'kakalot') {
+    // Site-mode series have no chapter list to show: tapping one resumes it directly.
+    if (CATALOG.find(e => e.id === id)?.mode === 'site') { openSite(id); return }
     pushOverlay({ kind: 'detail', id, source })
+  }
+
+  function openSite(id: string) {
+    const below = stackRef.current[stackRef.current.length - 2]
+    // Series page opened from the site view's info button → just go back to it.
+    if (below?.kind === 'site' && below.id === id) { goBack(); return }
+    void markReadingIfWanted(id)
+    pushOverlay({ kind: 'site', id })
   }
 
   function openReader(id: string, source: SeriesSource, type: SeriesType = 'manga', startChapterId?: string, startPosition?: Bookmark['position']) {
@@ -132,8 +149,24 @@ export default function App() {
     )
   }
 
+  // Site view is immersive too
+  if (overlay?.kind === 'site') {
+    return (
+      <ToastProvider>
+        <div style={{ height: '100dvh', background: 'var(--y-bg)' }}>
+          <SiteView
+            seriesId={overlay.id}
+            onBack={goBack}
+            onInfo={() => pushOverlay({ kind: 'detail', id: overlay.id, source: 'kakalot' })}
+          />
+        </div>
+      </ToastProvider>
+    )
+  }
+
   return (
     <ToastProvider>
+      <ShareIntake onAdd={link => { switchTab('want'); setAddLink(link) }} />
       <div style={{ display: 'flex', flexDirection: 'column', height: '100dvh', background: 'var(--y-bg)' }}>
         <OfflineBanner />
 
@@ -144,6 +177,7 @@ export default function App() {
               id={overlay.id}
               source={overlay.source}
               onBack={goBack}
+              onOpenSite={() => openSite(overlay.id)}
               onRead={(readId, readSource, startChapterId, startPosition) =>
                 openReader(readId ?? overlay.id, readSource ?? overlay.source, 'manga', startChapterId, startPosition)}
             />
@@ -164,6 +198,8 @@ export default function App() {
               onUpcoming={() => pushOverlay({ kind: 'upcoming' })}
               onHistory={() => pushOverlay({ kind: 'history' })}
               onStats={() => pushOverlay({ kind: 'stats' })}
+              addLink={addLink}
+              onAddLinkDone={() => setAddLink(null)}
             />
           )}
         </main>

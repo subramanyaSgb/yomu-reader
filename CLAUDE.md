@@ -21,6 +21,17 @@ Named "Yomu" (Japanese: 読む, "to read").
 
 **Env vars (Vercel Production+Preview):** `VITE_IMAGE_PROXY` = the worker URL. Firebase vars NOT set (app runs local-only until owner does docs/FIREBASE-SETUP.md).
 
+### UPDATE (2026-11-10) — the sections above/below are stale past Phase 7
+Phases 8–19 are documented in `docs/phases/`. In short: the app is now three shelves
+over a catalog (`src/catalog.ts`) read from **WeebCentral** (wire key `kakalot`) and
+**Comizy** (`buddy:` ids) through the worker's `/scrape` route. Since **Phase 19** the
+owner adds series **in-app** (`+` on the shelf: title search or a pasted link) — do not
+hand-edit `catalog.ts` for that. Links from other sites become `web:<url>` series
+(generic extraction → Yomu reader, else a cleaned in-app site view, else "open site").
+Those routes need the worker secret `WEB_KEY` and the matching Vercel var `VITE_WEB_KEY`
+(owner action, see `docs/phases/PHASE-19-add-series-any-site.md`). Worker changes ship
+with `npx wrangler deploy` from `worker/` — pushing to `main` deploys only the app.
+
 ### KNOWN GOTCHAS (do not re-learn the hard way)
 1. **MangaDex CORS preflight = 403.** Never send custom headers (User-Agent, Accept) on browser fetches to `api.mangadex.org` — any custom header forces an OPTIONS preflight that MangaDex's anti-abuse layer 403s, silently blocking ALL calls → empty search/home. Bare `fetch(url)` (simple request) works. Fixed in `src/lib/mangadex/client.ts` (commit 601d378). The rate limiter is our good-citizen mechanism instead.
 2. **Vercel deploys from GitHub automatically.** The repo is Git-connected → every push to `main` auto-deploys production. Do NOT run `vercel deploy` via CLI to ship a code change — just `git push origin main`. CLI deploys during this session landed in `UNKNOWN`/stuck state and wasted time; Git-push is the reliable path. `vercel.json` pins buildCommand=`npm run build`, outputDirectory=`dist`, framework=`vite`.

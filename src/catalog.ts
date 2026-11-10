@@ -1,15 +1,21 @@
-// Curated personal catalog - ONLY these series exist in the app (owner's list, 2026-09-16).
-// Resolved against WeebCentral; id = '{ULID}/{Slug}' for the 'kakalot' source. Entries
-// flagged unavailable are not on WeebCentral (kept greyed so the list stays complete).
-// To add series: append here (resolve id via /scrape?site=kakalot&action=search).
+// The catalog = the built-in list below + series the owner added from inside the app
+// (Phase 19: "+" on the shelf — no code change needed any more).
+// Built-in ids are resolved against WeebCentral: '{ULID}/{Slug}' for the 'kakalot'
+// source; 'buddy:{titleId}:{slug}' for Comizy. Added series may also be
+// 'web:{series page URL}' — any other site, read through the worker's generic routes.
+
+/** How a web: series is read when the generic extractor can't feed the Yomu reader. */
+export type WebMode = 'site' | 'external' // site = cleaned page inside Yomu; external = site blocks the worker
 
 export interface CatalogEntry {
   title: string
   id: string
   wcTitle: string
-  cover?: string       // explicit proxied cover (Comizy 'buddy:' entries); WC covers are derived from the id
+  cover?: string       // explicit proxied cover (Comizy 'buddy:' / web: entries); WC covers are derived from the id
   genres?: string[]
   unavailable?: boolean
+  mode?: WebMode       // web: entries only; absent = normal reader
+  user?: boolean       // added in-app (removable)
 }
 
 // --- Per-series source overrides (user-chosen via the series page) ---
@@ -18,12 +24,17 @@ export interface CatalogEntry {
 
 export interface SourceOverride { id: string; cover?: string }
 const OVERRIDE_KEY = 'yomu:src-overrides'
+const USER_KEY = 'yomu:user-catalog'
+
+function readJson<T>(key: string, fallback: T): T {
+  try {
+    if (typeof localStorage === 'undefined') return fallback
+    return JSON.parse(localStorage.getItem(key) ?? 'null') ?? fallback
+  } catch { return fallback }
+}
 
 function loadOverrides(): Record<string, SourceOverride> {
-  try {
-    if (typeof localStorage === 'undefined') return {}
-    return JSON.parse(localStorage.getItem(OVERRIDE_KEY) ?? '{}')
-  } catch { return {} }
+  return readJson<Record<string, SourceOverride>>(OVERRIDE_KEY, {})
 }
 
 export function setSourceOverride(title: string, o: SourceOverride | null): void {
@@ -33,8 +44,87 @@ export function setSourceOverride(title: string, o: SourceOverride | null): void
   localStorage.setItem(OVERRIDE_KEY, JSON.stringify(all))
 }
 
-export function sourceNameOf(id: string): 'Comizy' | 'WeebCentral' {
-  return id.startsWith('buddy:') ? 'Comizy' : 'WeebCentral'
+// --- Web (any-site) ids ---
+
+export function isWebId(id: string): boolean {
+  return id.startsWith('web:')
+}
+
+/** The page URL inside a web: id ('' for other ids). */
+export function webUrlOf(id: string): string {
+  return isWebId(id) ? id.slice(4) : ''
+}
+
+export function sourceNameOf(id: string): string {
+  if (id.startsWith('buddy:')) return 'Comizy'
+  if (isWebId(id)) {
+    try { return new URL(webUrlOf(id)).hostname.replace(/^www\./, '') } catch { return 'Website' }
+  }
+  return 'WeebCentral'
+}
+
+/** True when the worker can list this entry's chapters (drives NEW badges, push, upcoming). */
+export function hasChapterFeed(e: CatalogEntry): boolean {
+  return !e.unavailable && !e.mode
+}
+
+// --- Series added in-app ---
+
+export function loadUserCatalog(): CatalogEntry[] {
+  const list = readJson<CatalogEntry[]>(USER_KEY, [])
+  return Array.isArray(list) ? list.filter(e => e && typeof e.id === 'string' && typeof e.title === 'string') : []
+}
+
+function saveUserCatalog(list: CatalogEntry[]): void {
+  localStorage.setItem(USER_KEY, JSON.stringify(list))
+}
+
+/** Adds a series. Returns false when it is already in the catalog (by id or title). */
+export function addUserSeries(e: Omit<CatalogEntry, 'user'>): boolean {
+  const list = loadUserCatalog()
+  const norm = (t: string) => t.trim().toLowerCase()
+  const clash = (x: CatalogEntry) => x.id === e.id || norm(x.title) === norm(e.title)
+  if (BASE_CATALOG.some(clash) || CATALOG.some(clash) || list.some(clash)) return false
+  list.push({ ...e, user: true })
+  saveUserCatalog(list)
+  return true
+}
+
+/** Match by current id (after overrides) — only in-app entries can be changed. */
+export function updateUserSeries(id: string, patch: Partial<CatalogEntry>): void {
+  const title = CATALOG.find(e => e.id === id && e.user)?.title
+  if (!title) return
+  saveUserCatalog(loadUserCatalog().map(e => (e.title === title ? { ...e, ...patch, user: true } : e)))
+}
+
+export function removeUserSeries(id: string): void {
+  const title = CATALOG.find(e => e.id === id && e.user)?.title
+  if (!title) return
+  saveUserCatalog(loadUserCatalog().filter(e => e.title !== title))
+  setSourceOverride(title, null)
+}
+
+/** For the backup file: the device-local catalog state that Dexie doesn't hold. */
+export function exportCatalogState(): { userCatalog: CatalogEntry[]; srcOverrides: Record<string, SourceOverride> } {
+  return { userCatalog: loadUserCatalog(), srcOverrides: loadOverrides() }
+}
+
+export function importCatalogState(data: { userCatalog?: unknown; srcOverrides?: unknown }): number {
+  let added = 0
+  if (Array.isArray(data.userCatalog)) {
+    const list = loadUserCatalog()
+    for (const e of data.userCatalog as CatalogEntry[]) {
+      if (!e || typeof e.id !== 'string' || typeof e.title !== 'string') continue
+      if (list.some(x => x.id === e.id || x.title === e.title)) continue
+      list.push({ ...e, user: true })
+      added++
+    }
+    saveUserCatalog(list)
+  }
+  if (data.srcOverrides && typeof data.srcOverrides === 'object') {
+    localStorage.setItem(OVERRIDE_KEY, JSON.stringify({ ...(data.srcOverrides as object), ...loadOverrides() }))
+  }
+  return added
 }
 
 const BASE_CATALOG: CatalogEntry[] = [
@@ -145,7 +235,12 @@ const BASE_CATALOG: CatalogEntry[] = [
 export { BASE_CATALOG }
 
 const _overrides = loadOverrides()
-export const CATALOG: CatalogEntry[] = BASE_CATALOG.map(e => {
+const _baseKeys = new Set(BASE_CATALOG.flatMap(e => [e.id, e.title.toLowerCase()]))
+export const CATALOG: CatalogEntry[] = [
+  ...BASE_CATALOG,
+  // A user entry never shadows a built-in one.
+  ...loadUserCatalog().filter(e => !_baseKeys.has(e.id) && !_baseKeys.has(e.title.toLowerCase())),
+].map(e => {
   const o = _overrides[e.title]
   return o ? { ...e, id: o.id, cover: o.cover } : e
 })

@@ -70,6 +70,13 @@ export default defineConfig({
         background_color: '#0D0D0D',
         display: 'standalone',
         orientation: 'portrait',
+        // Android Share → Yomu: add a series from the browser, or save your place in a
+        // series Yomu can't track itself (handled by ShareIntake).
+        share_target: {
+          action: '/',
+          method: 'GET',
+          params: { title: 'share_title', text: 'share_text', url: 'share_url' },
+        },
         icons: [
           { src: '/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any maskable' },
           { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },

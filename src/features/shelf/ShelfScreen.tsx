@@ -2,9 +2,10 @@
 // three grids over the curated catalog (src/catalog.ts) — no external discovery.
 
 import { useEffect, useRef, useState } from 'react'
-import { Search, X, CalendarClock, Settings, History, BarChart3 } from 'lucide-react'
+import { Search, X, CalendarClock, Settings, History, BarChart3, Plus } from 'lucide-react'
 import { useQuery, useQueries } from '@tanstack/react-query'
-import { CATALOG, type CatalogEntry } from '../../catalog'
+import { CATALOG, hasChapterFeed, isWebId, type CatalogEntry } from '../../catalog'
+import AddSeriesSheet from './AddSeriesSheet'
 import { kkCoverUrl, kkChapters, kkHealth } from '../../lib/kakalot/client'
 import { coverHue } from '../../components/CoverGradient'
 import { getReadList } from '../reader/readTracking'
@@ -38,21 +39,23 @@ const SHELF_TITLE: Record<Shelf, string> = {
 
 const EMPTY_HINT: Record<Shelf, string> = {
   reading: 'Nothing in progress — open a series from Want to Read and it moves here.',
-  want: 'Empty. Ask for new series to be added and they land here.',
+  want: 'Empty. Tap + to add a series — it lands here.',
   completed: 'Nothing finished yet — mark a series Completed from its page.',
 }
 
 function Card({ entry, info, hasNew, onOpen }: { entry: CatalogEntry; info?: CardInfo; hasNew?: boolean; onOpen: (id: string, src: SeriesSource) => void }) {
   const hue = coverHue(entry.id || entry.title)
   const unavailable = entry.unavailable === true
+  // web: ids carry no derivable cover — gradient + title when none was found.
+  const cover = entry.cover ?? (isWebId(entry.id) ? null : kkCoverUrl(entry.id))
   return (
     <button
       onClick={() => { if (!unavailable) onOpen(entry.id, 'kakalot') }}
       style={{ textAlign: 'left', background: 'none', border: 'none', cursor: unavailable ? 'default' : 'pointer', padding: 0, opacity: unavailable ? 0.45 : 1 }}>
       <div style={{ borderRadius: 16, overflow: 'hidden', aspectRatio: '110/152', position: 'relative',
         background: `linear-gradient(150deg, ${hue} 0%, color-mix(in oklab, ${hue} 36%, var(--y-bg)) 58%, var(--y-bg) 100%)` }}>
-        {!unavailable && (
-          <img src={entry.cover ?? kkCoverUrl(entry.id)} alt={entry.title} loading="lazy" decoding="async"
+        {!unavailable && cover && (
+          <img src={cover} alt={entry.title} loading="lazy" decoding="async"
             style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         )}
         {unavailable && (
@@ -87,17 +90,23 @@ export default function ShelfScreen({
   onUpcoming,
   onHistory,
   onStats,
+  addLink,
+  onAddLinkDone,
 }: {
   shelf: Shelf
   onOpen: (id: string, source: SeriesSource) => void
   onUpcoming?: () => void
   onHistory?: () => void
   onStats?: () => void
+  addLink?: string | null       // a link shared to the app → open the add sheet with it
+  onAddLinkDone?: () => void
 }) {
   const { shelves, loaded } = useShelves()
   const [term, setTerm] = useState('')
   const [info, setInfo] = useState<Record<string, CardInfo>>({})
   const [backupSheet, setBackupSheet] = useState(false)
+  const [addSheet, setAddSheet] = useState(false)
+  useEffect(() => { if (addLink) setAddSheet(true) }, [addLink])
   const [backupMsg, setBackupMsg] = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
   const q = term.trim().toLowerCase()
@@ -109,7 +118,7 @@ export default function ShelfScreen({
     : []
 
   // NEW-chapter detection for the Reading shelf (chapter lists are 10-min cached).
-  const readingIds = CATALOG.filter(e => !e.unavailable && shelfOf(shelves, e.id) === 'reading').map(e => e.id).slice(0, 20)
+  const readingIds = CATALOG.filter(e => hasChapterFeed(e) && shelfOf(shelves, e.id) === 'reading').map(e => e.id).slice(0, 20)
   const newChecks = useQueries({
     queries: (shelf === 'reading' ? readingIds : []).map(id => ({
       queryKey: ['kk', 'chapters', id],
@@ -223,6 +232,9 @@ export default function ShelfScreen({
               <History size={20} />
             </button>
           )}
+          <button onClick={() => setAddSheet(true)} aria-label="Add series" style={{ width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--y-plt)' }}>
+            <Plus size={22} />
+          </button>
           <button onClick={() => { setBackupSheet(true); setBackupMsg(''); setPushMsg('') }} aria-label="Settings" style={{ width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--y-mid)' }}>
             <Settings size={20} />
           </button>
@@ -286,6 +298,19 @@ export default function ShelfScreen({
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '14px 12px', padding: '0 18px 24px' }}>
         {entries.map(e => <Card key={e.title} entry={e} info={info[e.id]} hasNew={hasNewMap[e.id]} onOpen={onOpen} />)}
       </div>
+
+      {/* Add series */}
+      {addSheet && (
+        <AddSeriesSheet
+          initial={addLink ?? undefined}
+          onClose={added => {
+            setAddSheet(false)
+            onAddLinkDone?.()
+            // The catalog is computed at startup — reload onto the shelf new series land on.
+            if (added > 0) { sessionStorage.setItem('yomu:tab', 'want'); location.reload() }
+          }}
+        />
+      )}
 
       {/* Backup sheet */}
       {backupSheet && (

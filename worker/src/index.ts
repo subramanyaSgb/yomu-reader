@@ -4,6 +4,12 @@
 //   GET /api/<path>?<qs>                             — MangaDex API proxy (CORS-locked from browser)
 //   GET /comick/<path>?<qs>                          — Comick API proxy
 //   GET /scrape?site=kakalot&action=<...>&<params>   — fallback-source scraper (WeebCentral upstream)
+//   GET /web?k=<key>&u=<page URL>                    — any-site page, cleaned, for the in-app site view
+//
+// Phase 19 "any site": series ids "web:<series URL>" / chapter ids "web:<chapter URL>"
+// ride the same /scrape protocol (generic extraction, see generic.ts). Everything that
+// can reach an arbitrary host (action=resolve, web: ids, non-allowlisted images, /web)
+// requires k=<WEB_KEY> and answers 503 while the secret is unset.
 //
 // NOTE: the wire key stays `site=kakalot` / source:'kakalot' for backward compat with the
 // deployed frontend and stored library data, but the upstream is now WeebCentral.
@@ -13,6 +19,8 @@
 // licensed manhwa, no challenge, and comics only (no light novels).
 //
 // SECURITY: restricted proxy — each route only allows its specific upstream host(s).
+
+import { extractPages, extractSeries, imgSource, looksBlocked, titleFromUrl } from './generic'
 
 const ALLOWED_IMAGE_HOST = /(^|\.)mangadex\.network$/
 const ALLOWED_UPLOADS = 'uploads.mangadex.org'
@@ -301,12 +309,12 @@ async function scrapePages(chapterUrl: string): Promise<KakalotPage[]> {
 }
 
 // Proxy an upstream image that requires a Referer spoof.
-async function proxyKakalotImage(imageUrl: string, referer: string, origin: string | null): Promise<Response> {
+async function proxyKakalotImage(imageUrl: string, referer: string, origin: string | null, allowAnyHost = false): Promise<Response> {
   let parsed: URL
   try { parsed = new URL(imageUrl) } catch {
     return new Response('Bad image URL', { status: 400, headers: corsHeaders(origin) })
   }
-  if (!WC_IMG_HOST.test(parsed.host)) {
+  if (!WC_IMG_HOST.test(parsed.host) && !(allowAnyHost && isPublicHttpUrl(parsed))) {
     return new Response('Forbidden host', { status: 403, headers: corsHeaders(origin) })
   }
 
@@ -329,9 +337,237 @@ async function proxyKakalotImage(imageUrl: string, referer: string, origin: stri
     return new Response('Upstream error', { status: upstream.status, headers: corsHeaders(origin) })
   }
   const headers = new Headers(corsHeaders(origin))
-  headers.set('Content-Type', upstream.headers.get('Content-Type') ?? 'image/jpeg')
+  // Some CDNs label images application/octet-stream — name the type from the extension.
+  const upType = upstream.headers.get('Content-Type') ?? ''
+  const ext = parsed.pathname.match(/\.(jpe?g|png|webp|avif|gif)$/i)?.[1].toLowerCase()
+  const byExt = ext ? `image/${ext === 'jpg' ? 'jpeg' : ext}` : 'image/jpeg'
+  headers.set('Content-Type', upType.startsWith('image/') ? upType : byExt)
   headers.set('Cache-Control', 'public, max-age=86400, immutable')
   return new Response(upstream.body, { status: 200, headers })
+}
+
+// --- Any-site support (Phase 19): generic extraction + cleaned site view ---
+
+const WEB_PREFIX = 'web:'
+
+function isPublicHttpUrl(u: URL): boolean {
+  if (u.protocol !== 'https:' && u.protocol !== 'http:') return false
+  const h = u.hostname.toLowerCase()
+  if (h === 'localhost' || h.endsWith('.local') || h.endsWith('.internal') || !h.includes('.')) return false
+  if (/^[\d.]+$/.test(h) || h.includes(':')) return false // IP literals
+  return true
+}
+
+function parsePublicUrl(s: string): URL | null {
+  try {
+    const u = new URL(s)
+    return isPublicHttpUrl(u) ? u : null
+  } catch {
+    return null
+  }
+}
+
+function webKeyOk(url: URL, env: Env): boolean {
+  return !!env.WEB_KEY && url.searchParams.get('k') === env.WEB_KEY
+}
+
+function webImageUrl(workerOrigin: string, src: string, pageUrl: string, key: string): string {
+  let ref = ''
+  try { ref = new URL(pageUrl).origin + '/' } catch { /* worker default */ }
+  return `${workerOrigin}/scrape?site=kakalot&action=img&u=${encodeURIComponent(src)}&ref=${encodeURIComponent(ref)}&k=${encodeURIComponent(key)}`
+}
+
+interface WebPage { status: number; html: string; finalUrl: string; blocked: boolean; isHtml: boolean }
+
+async function webFetch(target: string, cacheTtl = 600): Promise<WebPage | null> {
+  const u = parsePublicUrl(target)
+  if (!u) return null
+  try {
+    const res = await fetch(u.toString(), {
+      headers: {
+        'User-Agent': BROWSER_UA,
+        Accept: 'text/html,application/xhtml+xml,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+        Referer: u.origin + '/',
+      },
+      redirect: 'follow',
+      cf: { cacheEverything: true, cacheTtl },
+    })
+    const isHtml = /html|xml/i.test(res.headers.get('Content-Type') ?? 'text/html')
+    const html = isHtml ? await res.text() : ''
+    return { status: res.status, html, finalUrl: res.url || u.toString(), blocked: looksBlocked(res.status, html), isHtml }
+  } catch {
+    return null
+  }
+}
+
+async function webChapters(
+  id: string, workerOrigin: string, key: string,
+): Promise<{ title: string; chapters: KakalotChapter[]; cover: string; kind: string }> {
+  const page = await webFetch(id.slice(WEB_PREFIX.length))
+  if (!page || page.blocked || !page.isHtml) return { title: '', chapters: [], cover: '', kind: 'manhwa' }
+  const s = extractSeries(page.html, page.finalUrl)
+  return {
+    title: s.title,
+    cover: s.cover ? webImageUrl(workerOrigin, s.cover, page.finalUrl, key) : '',
+    kind: 'manhwa', // long-strip is the safe default for an unknown site
+    chapters: s.chapters.map(c => ({ id: WEB_PREFIX + c.url, number: c.number, title: c.title, publishAt: '' })),
+  }
+}
+
+async function webPages(id: string): Promise<KakalotPage[]> {
+  const page = await webFetch(id.slice(WEB_PREFIX.length), 3600)
+  if (!page || page.blocked || !page.isHtml) return []
+  return extractPages(page.html, page.finalUrl).map(src => ({ src }))
+}
+
+type ResolveResult =
+  | { kind: 'known'; id: string; title: string; cover: string }
+  | { kind: 'web'; mode: 'reader' | 'site' | 'external'; id: string; title: string; cover: string; chapters: number }
+  | { error: string }
+
+/** Classify a pasted link: one of our two sources, or an outside site and how it can be read. */
+async function resolveLink(target: string, workerOrigin: string, key: string): Promise<ResolveResult> {
+  const u = parsePublicUrl(target)
+  if (!u) return { error: 'That does not look like a web link.' }
+  const host = u.hostname.replace(/^www\./, '')
+
+  if (host === 'weebcentral.com') {
+    const m = u.pathname.match(/^\/series\/([A-Z0-9]+)\/([^/]+)/)
+    if (!m) return { error: 'Paste the WeebCentral series page link (weebcentral.com/series/…).' }
+    return { kind: 'known', id: `${m[1]}/${m[2]}`, title: titleFromUrl(u.toString()), cover: proxiedImageUrl(workerOrigin, wcCoverUrl(m[1])) }
+  }
+  if (host === 'comizy.io') {
+    const slug = u.pathname.split('/').filter(Boolean)[0]
+    if (slug) {
+      const page = await webFetch(`https://comizy.io/${slug}`)
+      const jsonText = page?.html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]+?)<\/script>/)?.[1]
+      try {
+        const m = JSON.parse(jsonText ?? 'null')?.props?.pageProps?.initialManga
+        if (m?.id && m?.slug) {
+          return { kind: 'known', id: `buddy:${m.id}:${m.slug}`, title: m.name ?? titleFromUrl(u.toString()), cover: m.cover ? proxiedImageUrl(workerOrigin, m.cover) : '' }
+        }
+      } catch { /* fall through to generic handling */ }
+    }
+  }
+
+  const id = WEB_PREFIX + u.toString()
+  const fallbackTitle = titleFromUrl(u.toString()) || host
+  const page = await webFetch(u.toString())
+  if (!page || page.blocked || !page.isHtml) {
+    return { kind: 'web', mode: 'external', id, title: fallbackTitle, cover: '', chapters: 0 }
+  }
+  if (page.status === 404 || page.status === 410) return { error: 'That page does not exist on the site (404).' }
+  // Dead series links commonly redirect to the home page — that is not a series.
+  if (u.pathname.replace(/\/+$/, '') !== '' && new URL(page.finalUrl).pathname.replace(/\/+$/, '') === '') {
+    return { error: 'The site sent that link to its home page — the series link looks dead.' }
+  }
+  const s = extractSeries(page.html, page.finalUrl)
+  const base = {
+    kind: 'web' as const, id,
+    title: s.title || fallbackTitle,
+    cover: s.cover ? webImageUrl(workerOrigin, s.cover, page.finalUrl, key) : '',
+  }
+  if (s.chapters.length === 0) return { ...base, mode: 'site', chapters: 0 }
+  // Reader mode only if a real chapter actually yields page images.
+  const sample = await webFetch(s.chapters[0].url, 3600)
+  const pages = sample && !sample.blocked ? extractPages(sample.html, sample.finalUrl) : []
+  return { ...base, mode: pages.length >= 3 ? 'reader' : 'site', chapters: s.chapters.length }
+}
+
+// Runs inside the cleaned page: tells the app where the reader is (page URL + image
+// anchor) and restores "#y=<image index>,<offset>" when the app reopens a page.
+const SITE_REPORTER = `(function(){
+var U=__URL__;
+function anchor(){var l=document.images;for(var i=0;i<l.length;i++){var r=l[i].getBoundingClientRect();if(r.height>40&&r.bottom>0){return{i:i,o:Math.min(1,Math.max(0,-r.top/r.height))}}}return{i:0,o:0}}
+function send(){var p=anchor();parent.postMessage({yomu:'pos',url:U,title:document.title,img:p.i,off:p.o},'*')}
+var t;addEventListener('scroll',function(){clearTimeout(t);t=setTimeout(send,300)},{passive:true});
+// Links replace the page instead of stacking history, so Back always leaves the site view.
+addEventListener('click',function(e){var a=e.target&&e.target.closest?e.target.closest('a[href]'):null;if(!a||a.href.indexOf(location.origin+'/web?')!==0)return;e.preventDefault();location.replace(a.href)},true);
+var m=location.hash.match(/^#y=(\\d+),([\\d.]+)$/);
+if(!m)send();
+if(m){var n=+m[1],o=+m[2],until=Date.now()+12000,stop=false;
+['touchstart','wheel','keydown','mousedown'].forEach(function(e){addEventListener(e,function(){stop=true},{passive:true})});
+(function go(){if(stop)return;var el=document.images[n];if(el){var r=el.getBoundingClientRect();scrollTo(0,scrollY+r.top+r.height*o)}if(Date.now()<until)setTimeout(go,400)})();}
+})();`
+
+function siteFailPage(reason: 'blocked' | 'unreachable' | 'not-a-page' | 'locked', target: string): Response {
+  const nonce = crypto.randomUUID()
+  const body = `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<body style="margin:0;background:#0d0d0d;color:#9ca3af;font:14px system-ui;display:flex;align-items:center;justify-content:center;height:100vh;text-align:center;padding:24px">
+<p>This page can't be shown inside Yomu (${reason}).</p>
+<script nonce="${nonce}">parent.postMessage({yomu:'fail',reason:${JSON.stringify(reason)},url:${JSON.stringify(target)}},'*')</script>`
+  return new Response(body, {
+    status: 200,
+    headers: { 'Content-Type': 'text/html; charset=utf-8', 'Content-Security-Policy': `script-src 'nonce-${nonce}'`, 'Cache-Control': 'no-store' },
+  })
+}
+
+/** Serve an outside page for the in-app site view: no site scripts, frames or forms
+ *  (CSP — that is what removes the ads), images via our proxy, links kept inside /web. */
+async function proxySitePage(target: string, workerOrigin: string, key: string): Promise<Response> {
+  const page = await webFetch(target, 300)
+  if (!page) return siteFailPage('unreachable', target)
+  if (page.blocked) return siteFailPage('blocked', target)
+  if (!page.isHtml) return siteFailPage('not-a-page', target)
+
+  const base = page.finalUrl
+  const nonce = crypto.randomUUID()
+  const k = encodeURIComponent(key)
+  const abs = (href: string): string | null => {
+    try {
+      const u = new URL(href, base)
+      return isPublicHttpUrl(u) ? u.toString() : null
+    } catch {
+      return null
+    }
+  }
+  const headInject =
+    `<base href="${base.replace(/"/g, '&quot;')}"><meta name="referrer" content="no-referrer">` +
+    `<style>img{opacity:1!important;visibility:visible!important;max-width:100%;height:auto}html{scroll-behavior:auto!important}</style>`
+  let headDone = false
+  const drop = { element(el: Element) { el.remove() } }
+
+  const rewritten = new HTMLRewriter()
+    .on('script, iframe, frame, object, embed, noscript, base, meta[http-equiv], link[rel="manifest"]', drop)
+    .on('picture source', drop)
+    .on('head', { element(el) { el.prepend(headInject, { html: true }); headDone = true } })
+    .on('body', { element(el) { if (!headDone) { el.prepend(headInject, { html: true }); headDone = true } } })
+    .on('a[href], area[href]', {
+      element(el) {
+        const href = el.getAttribute('href') ?? ''
+        const to = href.startsWith('#') ? null : abs(href)
+        // "#…" would resolve against <base> and leave the proxy; drop it.
+        if (to) el.setAttribute('href', `${workerOrigin}/web?k=${k}&u=${encodeURIComponent(to)}`)
+        else el.removeAttribute('href')
+        el.removeAttribute('target')
+      },
+    })
+    .on('img', {
+      element(el) {
+        const src = imgSource(name => el.getAttribute(name), base)
+        if (src) el.setAttribute('src', webImageUrl(workerOrigin, src, base, key))
+        for (const a of ['srcset', 'data-srcset', 'sizes']) el.removeAttribute(a)
+        el.setAttribute('loading', 'lazy')
+        el.setAttribute('decoding', 'async')
+      },
+    })
+    .onDocument({
+      end(end) {
+        end.append(`<script nonce="${nonce}">${SITE_REPORTER.replace('__URL__', JSON.stringify(base).replace(/</g, '\\u003c'))}</script>`, { html: true })
+      },
+    })
+    .transform(new Response(page.html, { headers: { 'Content-Type': 'text/html; charset=utf-8' } }))
+
+  const headers = new Headers({
+    'Content-Type': 'text/html; charset=utf-8',
+    // No 'unsafe-inline': the site's own scripts and inline handlers never run.
+    'Content-Security-Policy': `script-src 'nonce-${nonce}'; object-src 'none'; frame-src 'none'; child-src 'none'; worker-src 'none'; form-action 'none'`,
+    'Referrer-Policy': 'no-referrer',
+    'X-Robots-Tag': 'noindex',
+    'Cache-Control': 'private, max-age=120',
+  })
+  return new Response(rewritten.body, { status: 200, headers })
 }
 
 // --- Push notifications (Web Push, no Firebase) ---
@@ -342,6 +578,7 @@ interface Env {
   PUSH_KV: KVNamespace
   VAPID_PUBLIC: string
   VAPID_PRIVATE: string
+  WEB_KEY?: string // secret: unlocks the any-site routes (Phase 19)
 }
 
 interface PushSub { endpoint: string; keys?: Record<string, string> }
@@ -396,6 +633,11 @@ async function latestChapterNumber(id: string): Promise<string | null> {
     const list = await comizyGet(`/titles/${titleId}/chapters`)
     const name: string | undefined = list?.data?.chapters?.[0]?.name
     return name?.match(/(\d+(?:\.\d+)?)\s*$/)?.[1] ?? null
+  }
+  if (id.startsWith(WEB_PREFIX)) {
+    const page = await webFetch(id.slice(WEB_PREFIX.length), 3600)
+    if (!page || page.blocked) return null
+    return extractSeries(page.html, page.finalUrl).chapters.at(-1)?.number ?? null
   }
   const ulid = id.split('/')[0]
   const html = await wcFetch(`${WC}/series/${ulid}/full-chapter-list`, 3600)
@@ -576,10 +818,25 @@ export default {
           return json({ results }, origin, 200, results.length ? 600 : 0)
         }
 
+        // Any-site actions are locked behind the WEB_KEY secret (fail closed).
+        const needsKey =
+          action === 'resolve' ||
+          ((action === 'chapters' || action === 'pages') && (url.searchParams.get('id') ?? '').startsWith(WEB_PREFIX))
+        if (needsKey && !webKeyOk(url, env)) {
+          return json({ error: env.WEB_KEY ? 'bad key' : 'any-site support is not enabled on this worker' }, origin, env.WEB_KEY ? 403 : 503)
+        }
+
+        if (action === 'resolve') {
+          const result = await resolveLink(url.searchParams.get('u') ?? '', url.origin, env.WEB_KEY!)
+          return json(result, origin, 'error' in result ? 422 : 200)
+        }
+
         if (action === 'chapters') {
           const id = url.searchParams.get('id') ?? ''
           if (!id) return json({ error: 'missing id' }, origin, 400)
-          const data = id.startsWith('buddy:')
+          const data = id.startsWith(WEB_PREFIX)
+            ? await webChapters(id, url.origin, env.WEB_KEY!)
+            : id.startsWith('buddy:')
             ? await buddyChapters(id, url.origin)
             : await scrapeChapters(id, url.origin)
           // Empty chapter list = upstream hiccup, never a valid answer for a real
@@ -591,20 +848,29 @@ export default {
           const id = url.searchParams.get('id') ?? ''
           if (!id) return json({ error: 'missing id' }, origin, 400)
           // id IS the full chapter URL (WC) or buddy:{titleId}:{chapterId} (Comizy)
-          const pages = id.startsWith('buddy:') ? await buddyPages(id) : await scrapePages(id)
+          const pages = id.startsWith(WEB_PREFIX)
+            ? await webPages(id)
+            : id.startsWith('buddy:') ? await buddyPages(id) : await scrapePages(id)
           return json({ pages }, origin, pages.length ? 200 : 503, pages.length ? 3600 : 0)
         }
 
         if (action === 'img') {
           const imageUrl = url.searchParams.get('u') ?? ''
-          const referer = url.searchParams.get('ref') ?? `${WC}/`
-          return proxyKakalotImage(imageUrl, referer, origin)
+          const referer = url.searchParams.get('ref') || `${WC}/`
+          return proxyKakalotImage(imageUrl, referer, origin, webKeyOk(url, env))
         }
 
         return json({ error: 'unknown action' }, origin, 400)
       } catch (e) {
         return json({ error: String(e) }, origin, 500)
       }
+    }
+
+    // /web — an outside page, cleaned, for the in-app site view (Phase 19)
+    if (url.pathname === '/web') {
+      const target = url.searchParams.get('u') ?? ''
+      if (!webKeyOk(url, env)) return siteFailPage('locked', target)
+      return proxySitePage(target, url.origin, env.WEB_KEY!)
     }
 
     // /health — live source status for the in-app banner (both checks in parallel,

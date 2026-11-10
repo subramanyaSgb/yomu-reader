@@ -2,7 +2,7 @@
 // The Worker cron compares each Reading-shelf series' latest chapter with what the
 // device last saw; the SW (push-sw.js) shows the notifications.
 
-import { CATALOG } from '../../catalog'
+import { CATALOG, hasChapterFeed } from '../../catalog'
 import { getSetting, setSetting } from '../../lib/db/repo'
 import { getShelves, shelfOf } from '../shelf/shelf'
 import { getSeriesMeta } from '../shelf/seriesMeta'
@@ -28,7 +28,7 @@ export async function isPushEnabled(): Promise<boolean> {
 
 async function readingListState() {
   const shelves = await getShelves()
-  const reading = CATALOG.filter(e => !e.unavailable && shelfOf(shelves, e.id) === 'reading')
+  const reading = CATALOG.filter(e => hasChapterFeed(e) && shelfOf(shelves, e.id) === 'reading')
   const out: Array<{ id: string; title: string; lastNumber: string | null }> = []
   for (const e of reading) {
     const meta = await getSeriesMeta(e.id)

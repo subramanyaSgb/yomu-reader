@@ -15,7 +15,10 @@ import { getSetting } from '../../lib/db/repo'
 import { db } from '../../lib/db/schema'
 import { getSeriesMeta, type SeriesMeta } from '../shelf/seriesMeta'
 import { getBookmarks, removeBookmark, type Bookmark } from '../bookmarks/bookmarks'
-import { CATALOG, BASE_CATALOG, setSourceOverride, sourceNameOf } from '../../catalog'
+import { CATALOG, BASE_CATALOG, setSourceOverride, sourceNameOf, isWebId, webUrlOf, updateUserSeries, removeUserSeries } from '../../catalog'
+import { kkResolve } from '../../lib/kakalot/client'
+import { saveSitePlace } from '../site/sitePlace'
+import { linkIn } from '../shelf/addSeries'
 import { migrateSeries } from '../shelf/idMigration'
 import { kkSearch as kkSearchRaw, type KakalotManga } from '../../lib/kakalot/client'
 import {
@@ -57,6 +60,7 @@ interface Props {
   id: string
   source: SeriesSource
   onBack: () => void
+  onOpenSite?: () => void // web: series → the in-app site view
   onRead: (readId?: string, readSource?: SeriesSource, startChapterId?: string, startPosition?: Bookmark['position']) => void
 }
 
@@ -80,9 +84,15 @@ function RowIconBtn({ active, busy, label, onClick, children }: {
   )
 }
 
-export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
+export default function SeriesDetail({ id, source, onBack, onOpenSite, onRead }: Props) {
   const isComick = source === 'comick'
   const isKakalot = source === 'kakalot'
+  const catEntry = isKakalot ? CATALOG.find(e => e.id === id) : undefined
+  // web: series the generic extractor can't feed to the reader: 'site' opens the
+  // cleaned pages in-app, 'external' opens the site as-is. No chapter list either way.
+  const isWeb = isWebId(id)
+  const siteMode = catEntry?.mode
+  const sourceName = isKakalot ? sourceNameOf(id) : 'WeebCentral'
   const manga = useManga(source === 'mangadex' ? id : undefined)
   const feed = useChapterFeed(source === 'mangadex' ? id : undefined)
   const comic = useComickComic(isComick ? id : undefined)
@@ -133,7 +143,7 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
   // external/licensed), so whichever source has more chapters wins.
   const kkSearch = useKakalotSearch(!isKakalot && title && title !== '…' ? title : '')
   const kkMangaId = isKakalot ? id : (kkSearch.data?.[0]?.id ?? null)
-  const kkFeed = useKakalotChapters(kkMangaId ?? '')
+  const kkFeed = useKakalotChapters(siteMode ? '' : (kkMangaId ?? ''))
   // Worker returns ascending; apply the Newest/Oldest toggle here (it previously only
   // affected the MD list — the button did nothing for WeebCentral chapters).
   const kkChapters = useMemo(() => {
@@ -264,7 +274,6 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
   }
 
   // Per-series source switching (WeebCentral ↔ Comizy)
-  const catEntry = isKakalot ? CATALOG.find(e => e.id === id) : undefined
   const [srcSheet, setSrcSheet] = useState(false)
   const [srcResults, setSrcResults] = useState<KakalotManga[] | null>(null)
   const [srcBusy, setSrcBusy] = useState(false)
@@ -282,10 +291,66 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
     try {
       await migrateSeries(id, r.id)
       const base = BASE_CATALOG.find(b => b.title === catEntry.title)
-      if (base && base.id === r.id) setSourceOverride(catEntry.title, null)
+      if (catEntry.user) {
+        // In-app entries are edited in place — overrides are for the built-in list.
+        updateUserSeries(id, { id: r.id, cover: r.id.startsWith('buddy:') ? (r.cover || undefined) : undefined })
+      } else if (base && base.id === r.id) setSourceOverride(catEntry.title, null)
       else setSourceOverride(catEntry.title, { id: r.id, cover: r.cover || undefined })
       location.reload() // effective catalog is computed at startup
     } catch { setSrcBusy(false) }
+  }
+
+  // --- web: series in site/external mode: where the reader left off, re-check, remove ---
+  const [sitePlace, setSitePlace] = useState<string | null>(null)
+  const [placeInput, setPlaceInput] = useState('')
+  const [siteMsg, setSiteMsg] = useState('')
+  const [siteBusy, setSiteBusy] = useState(false)
+  const [confirmRemove, setConfirmRemove] = useState(false)
+  useEffect(() => {
+    if (!isWeb) return
+    let alive = true
+    restoreProgress(id).then(p => {
+      if (alive) setSitePlace(p && /^https?:\/\//.test(p.lastChapterId) ? p.lastChapterId : null)
+    })
+    return () => { alive = false }
+  }, [id, isWeb])
+
+  function openExternal() {
+    if (currentShelf === 'want') setShelfState(id, 'reading')
+    window.open(sitePlace ?? webUrlOf(id), '_blank', 'noopener')
+  }
+  async function savePlace() {
+    const link = linkIn(placeInput)
+    if (!link) { setSiteMsg('Paste the link of the page you stopped on.'); return }
+    await saveSitePlace(id, link)
+    setSitePlace(link)
+    setPlaceInput('')
+    setSiteMsg('Saved — “Open site” now starts there.')
+  }
+  /** Ask the worker again how this site can be read (sites change; blocks come and go). */
+  async function recheckSite() {
+    if (!catEntry?.user || siteBusy) return
+    setSiteBusy(true)
+    setSiteMsg('')
+    try {
+      const r = await kkResolve(webUrlOf(id))
+      const next = r.kind === 'web' && r.mode !== 'reader' ? r.mode : undefined
+      if (r.kind === 'web' && next !== siteMode) {
+        updateUserSeries(id, { mode: next, cover: r.cover || catEntry.cover })
+        location.reload()
+        return
+      }
+      setSiteMsg('No change — the site still reads the same way.')
+    } catch (e) {
+      setSiteMsg(e instanceof Error ? e.message : String(e))
+    }
+    setSiteBusy(false)
+  }
+  function removeFromList() {
+    if (!confirmRemove) { setConfirmRemove(true); return }
+    removeUserSeries(id)
+    history.replaceState({ stack: [] }, '') // land on the shelf after the reload
+    location.reload()
   }
 
   // Jump-to-chapter input
@@ -300,8 +365,8 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
   const displayChapterCount = isComick ? ckChapters.length : (showKkChapters ? kkChapters.length : mdChapters.length)
 
   // Kakalot-source detail pages get title/cover from the chapter feed itself.
-  const shownTitle = isKakalot ? (kkFeed.data?.title || '…') : title
-  const shownCover = isKakalot ? (kkFeed.data?.cover || null) : cover
+  const shownTitle = isKakalot ? (kkFeed.data?.title || catEntry?.title || '…') : title
+  const shownCover = isKakalot ? (kkFeed.data?.cover || catEntry?.cover || null) : cover
 
   const clamped = !synopsisExpanded && synopsisText.length > 148
 
@@ -362,12 +427,12 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
                   {statusLabel}
                 </span>
               )}
-              <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--y-hi)' }}>{displayChapterCount} EN ch</span>
+              {!siteMode && <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--y-hi)' }}>{displayChapterCount} EN ch</span>}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
               <Star size={14} style={{ color: 'var(--y-a)', fill: 'var(--y-a)' }} />
               <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--y-hi)' }}>{isComick ? (c?.bayesian_rating ?? '—') : '—'}</span>
-              <span style={{ fontSize: 10.5, fontWeight: 500, color: 'var(--y-dim)' }}>· {isComick ? 'Comick' : isKakalot ? 'WeebCentral' : 'MangaDex'}</span>
+              <span style={{ fontSize: 10.5, fontWeight: 500, color: 'var(--y-dim)' }}>· {isComick ? 'Comick' : isKakalot ? sourceName : 'MangaDex'}</span>
             </div>
           </div>
         </div>
@@ -410,7 +475,7 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
         {/* Per-series preferences (push + auto-download apply to the Reading shelf) */}
         {showKkChapters && (
           <div style={{ display: 'flex', gap: 8, padding: '0 18px', marginBottom: 14, flexWrap: 'wrap' }}>
-            {([['notify', 'Notifications'], ['autoDl', 'Auto-download']] as const).map(([k, label]) => {
+            {!siteMode && ([['notify', 'Notifications'], ['autoDl', 'Auto-download']] as const).map(([k, label]) => {
               const on = prefs[k] !== false
               return (
                 <button key={k} onClick={() => togglePref(k)} style={{
@@ -420,7 +485,7 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
                 }}>{on ? '✓ ' : ''}{label}</button>
               )
             })}
-            {catEntry && (
+            {catEntry && !isWeb && (
               <button onClick={() => void openSourceSheet()} style={{
                 height: 32, padding: '0 12px', borderRadius: 9, border: '1px solid var(--y-line)',
                 background: 'var(--y-surf)', color: 'var(--y-mid)', fontSize: 11, fontWeight: 700, cursor: 'pointer',
@@ -428,6 +493,53 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
                 Source: {sourceNameOf(id)} ↔
               </button>
             )}
+            {catEntry?.user && (
+              <button onClick={removeFromList} onBlur={() => setConfirmRemove(false)} style={{
+                height: 32, padding: '0 12px', borderRadius: 9, border: '1px solid var(--y-line)',
+                background: confirmRemove ? 'var(--y-warn)' : 'var(--y-surf)', color: confirmRemove ? '#fff' : 'var(--y-warn)',
+                fontSize: 11, fontWeight: 700, cursor: 'pointer',
+              }}>
+                {confirmRemove ? 'Tap again to remove' : 'Remove from my list'}
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* web: series that can't use the reader — explain, resume point, re-check */}
+        {isWeb && (siteMode || kkFeed.isError) && (
+          <div style={{ margin: '0 18px 16px', padding: 14, borderRadius: 12, border: '1px solid var(--y-line)', background: 'var(--y-surf)' }}>
+            <div style={{ fontSize: 12.5, fontWeight: 800, color: 'var(--y-hi)', marginBottom: 6 }}>
+              {siteMode === 'external' ? `${sourceName} blocks Yomu` : siteMode === 'site' ? `Read on ${sourceName}, inside Yomu` : `Chapters from ${sourceName} did not load`}
+            </div>
+            <p style={{ fontSize: 11.5, fontWeight: 500, color: 'var(--y-mid)', lineHeight: 1.55, margin: '0 0 10px' }}>
+              {siteMode === 'external'
+                ? 'The site opens as it is and Yomu cannot see where you are. Paste (or share to Yomu) the link of the page you stopped on and “Open site” will start there.'
+                : siteMode === 'site'
+                  ? 'Yomu could not list this site’s chapters, so it shows the site’s own pages with ads and scripts removed, and remembers the page and position you left.'
+                  : 'The site may be down or may have changed. You can read it as cleaned pages inside Yomu instead, or check the site again.'}
+            </p>
+            {sitePlace && siteMode && (
+              <div style={{ fontSize: 10.5, fontWeight: 600, color: 'var(--y-dim)', marginBottom: 10, wordBreak: 'break-all' }}>Your place: {sitePlace}</div>
+            )}
+            {siteMode === 'external' && (
+              <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+                <input value={placeInput} onChange={e => setPlaceInput(e.target.value)} placeholder="Link of the page you stopped on"
+                  autoCapitalize="off" autoCorrect="off" spellCheck={false}
+                  style={{ flex: 1, minWidth: 0, height: 38, background: 'var(--y-surf2)', border: '1px solid var(--y-line)', borderRadius: 10, padding: '0 10px', fontSize: 12, fontWeight: 600, color: 'var(--y-hi)', outline: 'none' }} />
+                <button onClick={() => void savePlace()} style={{ height: 38, padding: '0 14px', borderRadius: 10, border: 'none', background: 'var(--y-p)', color: 'var(--y-onp)', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Save</button>
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {!siteMode && onOpenSite && (
+                <button onClick={onOpenSite} style={{ height: 34, padding: '0 12px', borderRadius: 9, border: 'none', background: 'var(--y-p)', color: 'var(--y-onp)', fontSize: 11.5, fontWeight: 700, cursor: 'pointer' }}>Open on site instead</button>
+              )}
+              {catEntry?.user && (
+                <button onClick={() => void recheckSite()} disabled={siteBusy} style={{ height: 34, padding: '0 12px', borderRadius: 9, border: '1px solid var(--y-line)', background: 'none', color: 'var(--y-mid)', fontSize: 11.5, fontWeight: 700, cursor: 'pointer' }}>
+                  {siteBusy ? 'Checking…' : 'Check the site again'}
+                </button>
+              )}
+            </div>
+            {siteMsg && <div style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--y-dim)', marginTop: 10, lineHeight: 1.5 }}>{siteMsg}</div>}
           </div>
         )}
 
@@ -503,7 +615,7 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
         )}
 
         {/* Chapter list header */}
-        <div style={{ borderTop: '1px solid var(--y-line)', padding: '12px 18px 8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, background: 'var(--y-bg)', zIndex: 2 }}>
+        {!siteMode && <div style={{ borderTop: '1px solid var(--y-line)', padding: '12px 18px 8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, background: 'var(--y-bg)', zIndex: 2 }}>
           <span style={{ fontSize: 14.5, fontWeight: 800, color: 'var(--y-hi)' }}>
             Chapters — {displayChapterCount} EN
             {!isComick && readSet.size > 0 && unreadCount > 0 && (
@@ -513,13 +625,13 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
               <span style={{ background: 'var(--y-aa)', color: 'var(--y-a)', fontSize: 9, fontWeight: 800, borderRadius: 6, padding: '2px 6px', marginLeft: 8, textTransform: 'uppercase' }}>Comick</span>
             )}
             {showKkChapters && kkChapters.length > 0 && (
-              <span style={{ background: 'var(--y-aa)', color: 'var(--y-a)', fontSize: 9, fontWeight: 800, borderRadius: 6, padding: '2px 6px', marginLeft: 8, textTransform: 'uppercase' }}>WeebCentral</span>
+              <span style={{ background: 'var(--y-aa)', color: 'var(--y-a)', fontSize: 9, fontWeight: 800, borderRadius: 6, padding: '2px 6px', marginLeft: 8, textTransform: 'uppercase' }}>{sourceName}</span>
             )}
           </span>
           <button onClick={() => setOrder(o => o === 'desc' ? 'asc' : 'desc')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 700, color: 'var(--y-dim)' }}>
             {order === 'desc' ? 'Newest first' : 'Oldest first'}
           </button>
-        </div>
+        </div>}
 
         {/* Jump to chapter */}
         {showKkChapters && kkChapters.length > 30 && (
@@ -643,7 +755,7 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
             {isComick
               ? 'Chapter list from Comick. Reading opens the matching series on WeebCentral.'
               : showKkChapters
-                ? (isLicensed ? 'Chapters sourced from WeebCentral (licensed on MangaDex).' : 'Chapters sourced from WeebCentral.')
+                ? (isLicensed ? 'Chapters sourced from WeebCentral (licensed on MangaDex).' : `Chapters sourced from ${sourceName}.`)
                 : 'Only English chapters with pages on MangaDex are listed.'}
           </p>
         )}
@@ -734,7 +846,11 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
           <button
             disabled={(isComick || showKkChapters) && !kkMangaId}
             onClick={() => {
-              if (isComick || showKkChapters) {
+              if (siteMode === 'site') {
+                onOpenSite?.()
+              } else if (siteMode === 'external') {
+                openExternal()
+              } else if (isComick || showKkChapters) {
                 onRead(kkMangaId ?? undefined, 'kakalot')
               } else {
                 onRead(id, 'mangadex', lastMdChapter?.id ?? firstMdChapter?.id)
@@ -745,7 +861,11 @@ export default function SeriesDetail({ id, source, onBack, onRead }: Props) {
             color: (isComick || showKkChapters) && !kkMangaId ? 'var(--y-dim)' : 'var(--y-onp)',
             fontSize: 15, fontWeight: 700, border: 'none', cursor: (isComick || showKkChapters) && !kkMangaId ? 'default' : 'pointer',
           }}>
-            {isComick
+            {siteMode === 'site'
+              ? (sitePlace ? 'Continue on site' : 'Open on site')
+              : siteMode === 'external'
+              ? (sitePlace ? 'Continue · open site' : 'Open site')
+              : isComick
               ? (kkMangaId ? 'Read on WeebCentral' : (kkSearch.isLoading ? 'Finding readable source…' : 'No readable source found'))
               : showKkChapters
                 ? (continueKk ? `Continue · Ch. ${continueKk.number ?? '?'}` : 'Start reading · Ch. 1')

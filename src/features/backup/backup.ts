@@ -3,6 +3,7 @@
 // Downloads/image bytes are intentionally excluded (re-downloadable, huge).
 
 import { db } from '../../lib/db/schema'
+import { exportCatalogState, importCatalogState, type CatalogEntry, type SourceOverride } from '../../catalog'
 
 interface BackupFile {
   app: 'yomu'
@@ -10,6 +11,9 @@ interface BackupFile {
   exportedAt: string
   settings: Array<{ key: string; value: unknown }>
   progress: unknown[]
+  // Series added in-app + source switches live in localStorage, not Dexie (Phase 19).
+  userCatalog?: CatalogEntry[]
+  srcOverrides?: Record<string, SourceOverride>
 }
 
 export async function exportBackup(): Promise<void> {
@@ -19,6 +23,7 @@ export async function exportBackup(): Promise<void> {
     exportedAt: new Date().toISOString(),
     settings: await db.settings.toArray(),
     progress: await db.progress.toArray(),
+    ...exportCatalogState(),
   }
   const blob = new Blob([JSON.stringify(data)], { type: 'application/json' })
   const a = document.createElement('a')
@@ -37,5 +42,6 @@ export async function importBackup(file: File): Promise<{ settings: number; prog
   }
   await db.settings.bulkPut(data.settings as never[])
   await db.progress.bulkPut((data.progress ?? []) as never[])
+  importCatalogState(data)
   return { settings: data.settings.length, progress: (data.progress ?? []).length }
 }

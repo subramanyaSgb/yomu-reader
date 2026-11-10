@@ -4,7 +4,7 @@
 
 import { ArrowLeft } from 'lucide-react'
 import { useQueries } from '@tanstack/react-query'
-import { CATALOG } from '../../catalog'
+import { CATALOG, hasChapterFeed } from '../../catalog'
 import { kkChapters, kkCoverUrl } from '../../lib/kakalot/client'
 import { coverHue } from '../../components/CoverGradient'
 import { useShelves, shelfOf } from './shelf'
@@ -69,7 +69,7 @@ export default function UpcomingScreen({
   onOpen: (id: string, source: SeriesSource) => void
 }) {
   const { shelves, loaded } = useShelves()
-  const reading = CATALOG.filter(e => !e.unavailable && shelfOf(shelves, e.id) === 'reading')
+  const reading = CATALOG.filter(e => hasChapterFeed(e) && shelfOf(shelves, e.id) === 'reading')
 
   const results = useQueries({
     queries: reading.map(e => ({
